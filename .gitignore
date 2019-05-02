@@ -6,4 +6,4 @@
 *.log
 *.npy
 *.avi
-
+*venv

@@ -1,0 +1,9 @@
+*.txt
+*.csv
+*.dat
+*.pyc
+*__pycache__
+*.log
+*.npy
+*.avi
+

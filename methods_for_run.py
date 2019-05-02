@@ -1,5 +1,7 @@
 import glob
+import numpy as np
 import os
+import pandas as pd
 import re
 
 
@@ -41,6 +43,14 @@ def files_from_pattern(files, pattern):
                     for file1 in files if re.search(pattern, file1)]))
 
 
+def find_stationarity(file, stationary_reference, *args, **kwargs):
+    fps = re.search(r"fps=(.*?)_", stationary_reference)
+    data = np.load(file)
+    reference = pd.read_csv(stationary_reference)
+    #TODO
+
+
+
 def get_dict_from_files(files, *args, **kwargs):
     vis_pat = kwargs.get("vis_pattern", r'mu={}cSt'.format)
     deg_pat = kwargs.get("deg_pattern", r'degree={}/'.format)
@@ -72,5 +82,26 @@ def get_dict_from_files(files, *args, **kwargs):
     return files_dict
 
 
-def make_stationary_files(files, output_path, *args, **kwargs):
-    pass
+def get_stationary_files(files, statio_path, redo = False, *args, **kwargs):
+    path_base = kwargs["path"]
+    file_format = kwargs["format"]
+    stationary_pattern = kwargs.get("stationary_pattern",
+                                    "_particles_crossed.csv")
+    pattern_str = "{0}ratio={2}/diameter={2}mm/mu={2}cSt/degree={2}/{1}/"
+    folders_pattern = pattern_str.format(path_base, statio_path, "{}").format
+    for ratio, diameter_dict in files.items():
+        for diameter, vis_dict in diameter_dict.items():
+            for viscosity, angle_dict in vis_dict.items():
+                for angle, data_dict in angle_dict.items():
+                    for file in data_dict:
+                        stationary_folder = folders_pattern(ratio, int(diameter),
+                                                        viscosity, angle)
+                        file_pattern = os.path.basename(file
+                                                    ).replace(file_format, "")
+                        stationary_reference = (stationary_folder +
+                                            file_pattern + stationary_pattern)
+                        if not os.path.isfile(stationary_reference):
+                            continue
+                        statio_data = find_stationarity(file,
+                                                        stationary_reference,
+                                                        *args, **kwargs)

@@ -2,7 +2,7 @@ import argparse
 import logging
 import os
 
-from methods_for_run import args_logger_wrapper, get_dict_from_files, get_files
+from methods_for_run import *
 
 
 def set_args():
@@ -46,7 +46,6 @@ def process_args(args):
     inner_dir = args.inner_dir if args.inner_dir else "results/"
     files = get_files(args.path, inner_dir, file_format)
     files_dict = get_dict_from_files(files)
-    files_stationary = make_stationary_files(files_dict, copy_path)
     kwargs = {
                 "format": file_format,
                 "inner_dir": inner_dir,
@@ -56,9 +55,12 @@ def process_args(args):
     return files, files_dict, kwargs
 
 
-def run_coarse_graining():
+def run_coarse_graining(stationary_path):
     files, files_dict, kwargs = process_args()
+    stationary_files = get_stationary_files(files_dict, stationary_path,
+                                            **kwargs)
 
 
 if __name__ == "__main__":
-    run_coarse_graining()
+    stationary_path = "stationary_velocity_region=0"
+    run_coarse_graining(stationary_path)

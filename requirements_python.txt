@@ -3,4 +3,4 @@ ipdb==0.12
 matplotlib==3.0.3
 opencv-python==4.1.0.25
 pandas==0.24.2
-tensorflow-gpu==1.13.1
+tensorflow-gpu==1.2.0

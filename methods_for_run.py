@@ -44,11 +44,20 @@ def files_from_pattern(files, pattern):
 
 
 def find_stationarity(file, stationary_reference, *args, **kwargs):
-    fps = re.search(r"fps=(.*?)_", stationary_reference)
+    fps = re.search(r"fps=(-?\d+)_", stationary_reference)
+    if not fps:
+        return
+    fps = int(fps.group(1))
     data = np.load(file)
+    data[:, 2] = data[:, 2] / fps
     reference = pd.read_csv(stationary_reference)
-    #TODO
-
+    reference.sort_values(by = ["time"], inplace = True)
+    t_min, t_max = reference["time"].min(), reference["time"].max()
+    rel_idxs = ((data[:, 2] >= t_min) & (data[:, 2] <= t_max))
+    rel_data = pd.DataFrame(data[rel_idxs])
+    rel_data.columns = ["x", "y", "time", "p_idx"]
+    rel_data.sort_values(by = ["time", "x", "y"], inplace = True)
+    return rel_data.values
 
 
 def get_dict_from_files(files, *args, **kwargs):
@@ -89,19 +98,35 @@ def get_stationary_files(files, statio_path, redo = False, *args, **kwargs):
                                     "_particles_crossed.csv")
     pattern_str = "{0}ratio={2}/diameter={2}mm/mu={2}cSt/degree={2}/{1}/"
     folders_pattern = pattern_str.format(path_base, statio_path, "{}").format
+    files_dict = {}
     for ratio, diameter_dict in files.items():
+        diameters = {}
         for diameter, vis_dict in diameter_dict.items():
+            viscosities = {}
             for viscosity, angle_dict in vis_dict.items():
+                angles = {}
                 for angle, data_dict in angle_dict.items():
+                    stationaries = []
                     for file in data_dict:
                         stationary_folder = folders_pattern(ratio, int(diameter),
                                                         viscosity, angle)
-                        file_pattern = os.path.basename(file
-                                                    ).replace(file_format, "")
+                        file_name = os.path.basename(file)
+                        stationary_file = stationary_folder + file_name
+                        stationaries.append(stationary_file)
+                        file_pattern = file_name.replace(file_format, "")
                         stationary_reference = (stationary_folder +
                                             file_pattern + stationary_pattern)
                         if not os.path.isfile(stationary_reference):
                             continue
-                        statio_data = find_stationarity(file,
+                        if os.path.isfile(stationary_file) and not redo:
+                            continue
+                        stationary_data = find_stationarity(file,
                                                         stationary_reference,
                                                         *args, **kwargs)
+                        np.save(stationary_file, stationary_data)
+                    if stationaries:
+                        angles[angle] = stationaries
+                viscosities[viscosity] = angles
+            diameters[float(diameter)] = viscosities
+        files_dict[ratio] = diameters
+    return files_dict

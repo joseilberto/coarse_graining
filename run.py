@@ -58,7 +58,8 @@ def process_args(args):
 def run_coarse_graining(stationary_path):
     files, files_dict, kwargs = process_args()
     stationary_files = get_stationary_files(files_dict, stationary_path,
-                                            **kwargs)
+                                            redo = False, *args, **kwargs)
+
 
 
 if __name__ == "__main__":

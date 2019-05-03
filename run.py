@@ -3,6 +3,7 @@ import logging
 import os
 
 from methods_for_run import *
+from load.methods_2d import *
 
 
 def set_args():
@@ -26,14 +27,7 @@ def set_args():
     return parser.parse_args()
 
 
-def start_logger():
-    logging.basicConfig(filename = os.path.basename(__file__).replace('.py',
-    '.log'), filemode = 'w',
-    format = '%(asctime)s --%(name)s-- %(levelname)s: %(message)s',
-    datefmt = '%d/%m/%Y %H:%M:%S', level = logging.DEBUG)
-
-
-@args_logger_wrapper(set_args, start_logger)
+@args_logger_wrapper(set_args)
 def process_args(args):
     """
     Process the arguments got from argparse.
@@ -49,26 +43,35 @@ def process_args(args):
     kwargs = {
                 "format": file_format,
                 "inner_dir": inner_dir,
-                "logger": logging.getLogger('Coarse Graining logging'),
                 "path": copy_path,
             }
     return files, files_dict, kwargs
 
 
 @process_for_file
-def individual_processing(file, ratio, diameter, viscosity, angle, *args,
+def file_processing(file, ratio, diameter, viscosity, angle, *args,
                           **kwargs):
-    pass
+    sys_type = kwargs.get("sys_type", "monodisperse")
+    if "monodisperse" in sys_type:
+        radius = diameter / 2
+    data = load_data(file)
+    data = radius_column_to_data(file, radius)
 
 
-
-def run_coarse_graining(stationary_path):
+def run_coarse_graining(stationary_path, parameters, *args, **kwargs):
     files, files_dict, kwargs = process_args()
     stationary_files = get_stationary_files(files_dict, stationary_path,
-                                            redo = False, *args, **kwargs)
-    individual_processing(stationary_files, *args, **kwargs)
+                                            redo = True, *args, **kwargs)
+    file_processing(stationary_files, *args, **parameters)
 
 
 if __name__ == "__main__":
     stationary_path = "stationary_velocity_region=0"
-    run_coarse_graining(stationary_path)
+    parameters = {
+        "density": 7850,
+        "epsilon": 3,
+        "n_points": 20,
+        "sys_type": "monodisperse",
+        "W": "max",
+    }
+    run_coarse_graining(stationary_path, parameters)

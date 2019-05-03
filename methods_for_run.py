@@ -4,6 +4,8 @@ import os
 import pandas as pd
 import re
 
+from load.methods_2d import velocities_column_to_data
+
 
 def args_logger_wrapper(*args):
     def outer_wrapper(function):
@@ -57,7 +59,8 @@ def find_stationarity(file, stationary_reference, *args, **kwargs):
     rel_data = pd.DataFrame(data[rel_idxs])
     rel_data.columns = ["x", "y", "time", "p_idx"]
     rel_data.sort_values(by = ["time", "x", "y"], inplace = True)
-    return rel_data.values
+    rel_data = velocities_column_to_data(rel_data.values)
+    return rel_data
 
 
 def get_dict_from_files(files, *args, **kwargs):

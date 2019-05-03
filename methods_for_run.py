@@ -130,3 +130,16 @@ def get_stationary_files(files, statio_path, redo = False, *args, **kwargs):
             diameters[float(diameter)] = viscosities
         files_dict[ratio] = diameters
     return files_dict
+
+
+def process_for_file(method):
+    def wrapper(files, *args, **kwargs):
+        for ratio, diameter_dict in files.items():
+            for diameter, vis_dict in diameter_dict.items():
+                viscosities = {}
+                for viscosity, angle_dict in vis_dict.items():
+                    for angle, data_dict in angle_dict.items():
+                        for file in data_dict:
+                            method(file, int(ratio), int(diameter), viscosity,
+                                   angle, *args, **kwargs)
+    return wrapper

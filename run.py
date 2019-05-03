@@ -55,11 +55,18 @@ def process_args(args):
     return files, files_dict, kwargs
 
 
+@process_for_file
+def individual_processing(file, ratio, diameter, viscosity, angle, *args,
+                          **kwargs):
+    pass
+
+
+
 def run_coarse_graining(stationary_path):
     files, files_dict, kwargs = process_args()
     stationary_files = get_stationary_files(files_dict, stationary_path,
                                             redo = False, *args, **kwargs)
-
+    individual_processing(stationary_files, *args, **kwargs)
 
 
 if __name__ == "__main__":

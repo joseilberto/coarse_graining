@@ -1,3 +1,5 @@
+from multiprocessing import cpu_count
+
 import argparse
 import logging
 import os
@@ -60,6 +62,14 @@ def file_processing(file, ratio, diameter, viscosity, angle, *args,
 
 def run_coarse_graining(stationary_path, parameters, *args, **kwargs):
     files, files_dict, kwargs = process_args()
+    kwargs.update({
+            "aliasing": 2,
+            "x_col": 0,
+            "y_col": 1,
+            "time_col": 2,
+            "idx_col": 3,
+            "n_procs": cpu_count(),
+         })
     stationary_files = get_stationary_files(files_dict, stationary_path,
                                             redo = True, *args, **kwargs)
     file_processing(stationary_files, *args, **parameters)

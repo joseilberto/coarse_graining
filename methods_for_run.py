@@ -59,7 +59,7 @@ def find_stationarity(file, stationary_reference, *args, **kwargs):
     rel_data = pd.DataFrame(data[rel_idxs])
     rel_data.columns = ["x", "y", "time", "p_idx"]
     rel_data.sort_values(by = ["time", "x", "y"], inplace = True)
-    rel_data = velocities_column_to_data(rel_data.values)
+    rel_data = velocities_column_to_data(rel_data.values, kwargs["aliasing"])
     return rel_data
 
 

@@ -102,7 +102,7 @@ def load_data(file):
     return data
 
 
-def radius_column_to_data(file, radius):
+def radius_column_to_data(data, radius):
     return np.c_[data, np.repeat(radius, len(data))]
 
 

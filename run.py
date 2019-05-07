@@ -57,8 +57,8 @@ def file_processing(file, ratio, diameter, viscosity, angle, *args,
     if "monodisperse" in sys_type:
         radius = diameter / 2
     data = load_data(file)
-    data = radius_column_to_data(file, radius)
-
+    data = radius_column_to_data(data, radius)
+    
 
 def run_coarse_graining(stationary_path, parameters, *args, **kwargs):
     files, files_dict, kwargs = process_args()
@@ -71,7 +71,7 @@ def run_coarse_graining(stationary_path, parameters, *args, **kwargs):
             "n_procs": cpu_count(),
          })
     stationary_files = get_stationary_files(files_dict, stationary_path,
-                                            redo = True, *args, **kwargs)
+                                            redo = False, *args, **kwargs)
     file_processing(stationary_files, *args, **parameters)
 
 

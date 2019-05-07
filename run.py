@@ -6,6 +6,7 @@ import os
 
 from methods_for_run import *
 from load.methods_2d import *
+from coarse_graining.methods_2d import Coarse_Graining
 
 
 def set_args():
@@ -58,7 +59,15 @@ def file_processing(file, ratio, diameter, viscosity, angle, *args,
         radius = diameter / 2
     data = load_data(file)
     data = radius_column_to_data(data, radius)
-    
+    kwargs.update({
+        "R": radius,
+    })
+    times = np.unique(data[:, 2])
+    for time in times:
+        coarser = Coarse_Graining(**kwargs)
+        coarse_graining_data = coarser.kinetic_stress(X, Y, V_X, V_Y, radius,
+                                                      **kwargs)
+        
 
 def run_coarse_graining(stationary_path, parameters, *args, **kwargs):
     files, files_dict, kwargs = process_args()
@@ -79,8 +88,8 @@ if __name__ == "__main__":
     stationary_path = "stationary_velocity_region=0"
     parameters = {
         "density": 7850,
-        "epsilon": 3,
-        "n_points": 20,
+        "epsilon": 4,
+        "n_points": 32,
         "sys_type": "monodisperse",
         "W": "max",
     }

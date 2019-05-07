@@ -24,10 +24,7 @@ def make_vel_batches(data, *args, **kwargs):
                                (times < final_time)]
         step_data = data[np.isin(data[:, time_col], times_in_batch)]
         step_data = step_data[:, [x_col, y_col, time_col, idx_col]]
-        step_data = pd.DataFrame(step_data)
-        step_data.columns = ["x", "y", "time", "idx"]
-        step_data.sort_values(by = ["time", "idx"], inplace = True)
-        step_data = step_data.values
+        step_data = sort_by_time(step_data)
         batches.append([step_data, times_in_batch, aliasing])
         time_steps.append(final_time)
     return batches, time_steps
@@ -73,8 +70,29 @@ def calculate_vel_batch(*args):
     return np.vstack(full_data)
 
 
-def calculate_vel_intersections(data, time_steps, *args, **kwargs):
-    pass
+def calculate_vel_intersections(data, vel_data, time_steps, *args, **kwargs):
+    aliasing = kwargs.get("aliasing", 2)
+    times = np.unique(data[:, 2])
+    size_times = len(times) - 1
+    not_tracked_data = [vel_data]
+    for time in time_steps:
+        idx_time_in_times = np.where(times == time)[0]
+        previous = data[data[:, 2] == times[idx_time_in_times - 1]]
+        curs = data[data[:, 2] == time]
+        cur_data = np.zeros((curs.shape[0], curs.shape[1] + 2))
+        cur_data[:, [0, 1, 2, 3]] = curs.copy()
+        velocities_generator = get_velocities_and_where(data, times,
+                                                        curs, previous,
+                                                        idx_time_in_times,
+                                                        aliasing, size_times)
+        for v_x, v_y, idx_cur_data in velocities_generator:
+            cur_data[idx_cur_data, [4, 5]] = v_x, v_y
+        not_tracked_data.append(cur_data)
+    if not not_tracked_data:
+        return
+    vel_data = np.vstack(not_tracked_data)
+    return sort_by_time(vel_data)
+
 
 def load_data(file):
     if file.endswith(".npy"):
@@ -92,9 +110,13 @@ def velocities_column_to_data(data, *args, **kwargs):
     n_procs = kwargs.get("n_procs", cpu_count())
     batches, time_steps = make_vel_batches(data, **kwargs)
     pool = Pool(n_procs)
-    data = np.vstack(pool.map(calculate_vel_batch, batches))
+    vel_data = np.vstack(pool.map(calculate_vel_batch, batches))
     pool.close()
-    data = calculate_vel_intersections(data, time_steps, **kwargs)
-    vel_data = vel_data.values
-    #TODO Do intersections between batches
+    data = calculate_vel_intersections(data, vel_data, time_steps, **kwargs)
     return data
+
+
+def sort_by_time(data):
+    data = pd.DataFrame(data)
+    data.sort_values(by = [2, 3], inplace = True)
+    return data.values

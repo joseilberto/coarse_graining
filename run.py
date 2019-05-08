@@ -60,14 +60,20 @@ def file_processing(file, ratio, diameter, viscosity, angle, *args,
     data = load_data(file)
     data = radius_column_to_data(data, radius)
     kwargs.update({
-        "R": radius,
+        "sys_type": "monodisperse",
+        "W": radius*10**(-3),
     })
     times = np.unique(data[:, 2])
+    radius_in_meter = radius*10**(-3)
     for time in times:
         coarser = Coarse_Graining(**kwargs)
-        coarse_graining_data = coarser.kinetic_stress(X, Y, V_X, V_Y, radius,
-                                                      **kwargs)
-        
+        cur_data = data[data[:, 2] == time]
+        X, Y = cur_data[:, 0]*10**(-2), cur_data[:, 1]*10**(-2)
+        V_X, V_Y = cur_data[:, 4]*10**(-2), cur_data[:, 5]*10**(-2)
+        radii = cur_data[:, 6]*10**(-3)
+        coarse_graining_data = coarser.kinetic_stress(X, Y, V_X, V_Y,
+                                                      radii, **kwargs)
+
 
 def run_coarse_graining(stationary_path, parameters, *args, **kwargs):
     files, files_dict, kwargs = process_args()
@@ -90,7 +96,5 @@ if __name__ == "__main__":
         "density": 7850,
         "epsilon": 4,
         "n_points": 32,
-        "sys_type": "monodisperse",
-        "W": "max",
     }
     run_coarse_graining(stationary_path, parameters)

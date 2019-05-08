@@ -10,20 +10,33 @@ class Coarse_Graining(Coarse_Base):
         self.kwargs = kwargs
 
 
+    def calculate_densities(self, idxs, *args, **kwargs):
+        masses = self.find_sphere_masses()
+        x_grids = tf.ragged.range(starts = idxs[:, 0, 0], limits = idxs[:, 0, 1])
+        y_grids = tf.ragged.range(starts = idxs[:, 1, 0], limits = idxs[:, 1, 1])
+
+
+    def find_indexes(self, array, values, grid, *args, **kwargs):
+        idxs_center = idx_nearest(array, values)
+        minima = tf.subtract(idxs_center, self.n_points)
+        maxima = tf.add(idxs_center, self.n_points)
+        shape_tile = tf.constant([len(grid) - 1], dtype = tf.int32)
+        zeros_reference = tf.zeros(shape = tf.shape(minima), dtype = tf.int32)
+        maxima_reference = tf.tile(shape_tile, tf.shape(maxima))
+        minima = tf.where(minima <= 0, zeros_reference, minima)
+        maxima = tf.where(maxima > len(grid) - 1, maxima_reference, maxima)
+        return tf.stack([minima, maxima, idxs_center], axis = 1)
+
+
+    def find_sphere_masses(self, *args, **kwargs):
+        return tf.multiply(self.radii, (4/3)*np.pi*self.density)
+
+
     def density_grid_updater(self, *args, **kwargs):
-        idx_x_center = idx_nearest(self.xs, self.pos[:, 0])
-        idx_y_center = idx_nearest(self.ys, self.pos[:, 1])
-        #TODO Generalize it, cause it stinks
-        min_x = tf.subtract(idx_x_center, self.n_points)
-        max_x = tf.add(idx_x_center, self.n_points)
-        shape_maxs = tf.constant([len(self.xx) - 1], dtype = tf.int64)
-        mins_x = tf.zeros(shape = tf.shape(min_x), dtype = tf.int64)
-        maxs_x = tf.tile(shape_maxs, max_x)
-        min_x = tf.where(min_x <= 0, mins_x, min_x)
-        max_x = tf.where(max_x > len(self.xx) - 1, maxs_x, max_x)
-
-        self.densities = tf.ones(self.xx.shape)
-
+        idxs_x = self.find_indexes(self.xs, self.pos[:, 0], self.xx)
+        idxs_y = self.find_indexes(self.ys, self.pos[:, 1], self.yy)
+        self.idxs = tf.stack([idxs_x, idxs_y], axis = 2)
+        densities_updates = self.calculate_densities(self.idxs)
 
 
     def start_tf_variables(self, *args, **kwargs):
@@ -53,8 +66,8 @@ class Coarse_Graining(Coarse_Base):
         self.start_grids(X, Y, *args, **kwargs)
         self.density_grid_updater()
         with tf.Session() as session:
-            session.run(tf.global_variables_initializer())
-            density = session.run(self.densities,
+            tf.global_variables_initializer().run()
+            test_var = session.run(self.idxs,
                                   feed_dict = {
                                       self.pos: np.column_stack((X, Y)),
                                       self.radii: radii,

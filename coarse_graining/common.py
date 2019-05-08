@@ -34,4 +34,4 @@ class Coarse_Base:
 
 def idx_nearest(array, value):
     value = tf.reshape(value, shape = [-1, 1])
-    return tf.argmin(tf.abs(array - value), axis = 1)
+    return tf.cast(tf.argmin(tf.abs(array - value), axis = 1), dtype = tf.int32)

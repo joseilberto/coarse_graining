@@ -36,3 +36,12 @@ class Coarse_Base:
         pass
 
 
+    def constrain_idxs(self, idxs, grid_length, *args, **kwargs):
+        shape_tile = tf.constant([grid_length], dtype = tf.int64)
+        zeros_reference = tf.zeros(shape = tf.shape(idxs[:, 0]), 
+                                    dtype = tf.int64)        
+        maxima_reference = tf.tile(shape_tile, tf.shape(idxs[:, 1]))
+        minimum = tf.where(idxs[:, 0] <= 0, zeros_reference, idxs[:, 0])
+        maximum = tf.where(idxs[:, 1] > grid_length, maxima_reference, 
+                            idxs[:, 1])
+        return tf.stack([minimum, maximum], axis = 1)

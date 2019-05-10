@@ -30,18 +30,26 @@ class Coarse_Graining(Coarse_Base):
         min_distances = tf.reduce_min(self.distances, axis = [1, 2], 
                                         keepdims = True)
         centers = tf.where(tf.equal(self.distances, min_distances))[:, 1:3]
-        minima = centers[:, 0:2] + self.n_points
-        maxima = centers[:, 0:2] + self.
+        minima = centers[:, 0:2] - self.n_points
+        maxima = centers[:, 0:2] + self.n_points
+        idxs = tf.stack([minima, maxima], axis = 2)
+        xs_idxs = self.constrain_idxs(idxs[:, 0, :], 
+                                            grid_centers[0].shape[0] - 1)
+        ys_idxs = self.constrain_idxs(idxs[:, 1, :], 
+                                            grid_centers[0].shape[1] - 1)
+        minima = tf.stack([xs_idxs[:, 0], ys_idxs[:, 0]], axis = 1)
+        maxima = tf.stack([xs_idxs[:, 1], ys_idxs[:, 1]], axis = 1)
+        idxs = tf.stack([minima, maxima, centers], axis = 1)
+        return tf.transpose(idxs, perm = [0, 2, 1])
         
-
 
     def find_sphere_masses(self, *args, **kwargs):
         return self.radii*(4/3)*np.pi*self.density
 
 
     def density_grid_updater(self, *args, **kwargs):
-        self.find_indexes(self.pos, [self.xx, self.yy])        
-        # densities_updates = self.calculate_densities(self.idxs)
+        self.idxs = self.find_indexes(self.pos, [self.xx, self.yy])        
+        densities_updates = self.calculate_densities(self.idxs)
 
 
     def start_tf_variables(self, *args, **kwargs):
@@ -60,10 +68,10 @@ class Coarse_Graining(Coarse_Base):
         self.xs = np.arange(min_x, max_x, self.cell_size)
         self.ys = np.arange(min_y, max_y, self.cell_size)
         self.xx, self.yy = np.meshgrid(self.ys, self.xs)
-        self.densities = tf.zeros(self.xx.shape)
-        self.momentum = tf.zeros(self.xx.shape + (2,))
-        self.kinetic = tf.zeros(self.xx.shape + (4,))
-        self.kinect_trace = tf.zeros(self.xx.shape)
+        self.densities = np.zeros(self.xx.shape)
+        self.momentum = np.zeros(self.xx.shape + (2,))
+        self.kinetic = np.zeros(self.xx.shape + (4,))
+        self.kinect_trace = np.zeros(self.xx.shape)
 
 
     def kinetic_stress(self, X, Y, V_X, V_Y, radii, *args, **kwargs):
@@ -73,9 +81,8 @@ class Coarse_Graining(Coarse_Base):
         session = tf.Session()
         init = tf.global_variables_initializer()
         session.run(init)
-        test_var = session.run(self.idxs_min,
+        test_var = session.run(self.idxs,
                         feed_dict = {
                             self.pos: np.column_stack((X, Y)),
                             self.radii: radii,
                         })
-        import ipdb; ipdb.set_trace()

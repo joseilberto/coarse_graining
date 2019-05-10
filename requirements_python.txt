@@ -1,6 +1,0 @@
-ipython==7.5.0
-ipdb==0.12
-matplotlib==3.0.3
-opencv-python==4.1.0.25
-pandas==0.24.2
-tensorflow-gpu==1.13.0

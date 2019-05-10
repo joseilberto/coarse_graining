@@ -59,9 +59,13 @@ def file_processing(file, ratio, diameter, viscosity, angle, *args,
         radius = diameter / 2
     data = load_data(file)
     data = radius_column_to_data(data, radius)
+    min_x, max_x = data[:, 0].min()*10**(-2), data[:, 0].max()*10**(-2)
+    min_y, max_y = data[:, 1].min()*10**(-2), data[:, 1].max()*10**(-2)    
+    limits = [min_x, max_x, min_y, max_y]
     kwargs.update({
         "sys_type": "monodisperse",
         "W": radius*10**(-3),
+        "limits": limits,
     })
     times = np.unique(data[:, 2])
     radius_in_meter = radius*10**(-3)

@@ -59,8 +59,9 @@ def file_processing(file, ratio, diameter, viscosity, angle, *args,
         radius = diameter / 2
     data = load_data(file)
     data = radius_column_to_data(data, radius)
-    min_x, max_x = data[:, 0].min()*10**(-2), data[:, 0].max()*10**(-2)
-    min_y, max_y = data[:, 1].min()*10**(-2), data[:, 1].max()*10**(-2)    
+    data[:, [0, 1, 4, 5]] = data[:, [0, 1, 4, 5]]*10**(-2)
+    min_x, max_x = data[:, 0].min(), data[:, 0].max()
+    min_y, max_y = data[:, 1].min(), data[:, 1].max()   
     limits = [min_x, max_x, min_y, max_y]
     kwargs.update({
         "sys_type": "monodisperse",
@@ -72,8 +73,8 @@ def file_processing(file, ratio, diameter, viscosity, angle, *args,
     for time in times:
         coarser = Coarse_Graining(**kwargs)
         cur_data = data[data[:, 2] == time]
-        X, Y = cur_data[:, 0]*10**(-2), cur_data[:, 1]*10**(-2)
-        V_X, V_Y = cur_data[:, 4]*10**(-2), cur_data[:, 5]*10**(-2)
+        X, Y = cur_data[:, 0], cur_data[:, 1]
+        V_X, V_Y = cur_data[:, 4], cur_data[:, 5]
         radii = cur_data[:, 6]*10**(-3)
         coarse_graining_data = coarser.kinetic_stress(X, Y, V_X, V_Y,
                                                       radii, **kwargs)

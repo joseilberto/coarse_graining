@@ -31,7 +31,8 @@ class Coarse_Base:
     def cell_size(self):
         return self.epsilon * self.W / self.n_points
 
+    
+    def fill_density_grids(self, grids, centers, masses, *args, **kwargs):
+        pass
 
-def idx_nearest(array, value):
-    value = tf.reshape(value, shape = [-1, 1])
-    return tf.cast(tf.argmin(tf.abs(array - value), axis = 1), dtype = tf.int32)
+

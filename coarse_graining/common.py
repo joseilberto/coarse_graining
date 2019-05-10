@@ -2,28 +2,59 @@ import tensorflow as tf
 
 
 class Coarse_Base:
+    def __init__(self, density = None, epsilon = None, function = "gaussian",
+                    limits = [], n_points = None, W = None, *args, **kwargs):
+        self._density = density
+        self.function = function
+        self._epsilon = epsilon
+        self._n_points = n_points
+        self._limits = limits
+        self._W = W
+        self.args = args
+        self.kwargs = kwargs
+
+
     @property
     def density(self):
-        return self.kwargs.get("density", 7850)
+        density = getattr(self, "_density", None)
+        if not density:            
+            density = self.kwargs.get("density", 7850)
+        return density
 
 
     @property
     def epsilon(self):
-        return self.kwargs.get("epsilon", 4)
+        epsilon = getattr(self, "_epsilon", None)
+        if not epsilon:
+            epsilon = self.kwargs.get("epsilon", 4)
+        return epsilon
+
+    
+    @property
+    def limits(self):
+        limits = getattr(self, "_limits", None)
+        if not limits:
+            limits = self.kwargs.get("limits", None)
+        return limits
 
 
     @property
     def W(self):
-        return self.kwargs.get("W", None)
+        W = getattr(self, "_W", None)
+        if not W:
+            W = self.kwargs.get("W", 4)
+        return W
 
 
     @property
     def n_points(self):
-        n_points = self.kwargs.get("n_points", self.epsilon * 4)
-        if n_points < self.epsilon * 2:
-            n_points = self.epsilon * 2
-        while not n_points % self.epsilon == 0:
-            n_points += 1
+        n_points = getattr(self, "_n_points", None)
+        if not n_points:            
+            n_points = self.kwargs.get("n_points", self.epsilon * 4)
+            if n_points < self.epsilon * 2:
+                n_points = self.epsilon * 2
+            while not n_points % self.epsilon == 0:
+                n_points += 1
         return n_points
 
 

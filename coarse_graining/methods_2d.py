@@ -4,12 +4,6 @@ import tensorflow as tf
 from .common import Coarse_Base
 
 class Coarse_Graining(Coarse_Base):
-    def __init__(self, function = "gaussian", *args, **kwargs):
-        self.function = function
-        self.args = args
-        self.kwargs = kwargs
-
-
     def calculate_densities(self, idxs, *args, **kwargs):
         masses = self.find_sphere_masses()
         centers = tf.stack([idxs[:, 2, 0], idxs[:, 2, 1]], axis = 1)        
@@ -23,6 +17,16 @@ class Coarse_Graining(Coarse_Base):
         X = tf.reshape(positions[:, 0], [-1, 1, 1])
         Y = tf.reshape(positions[:, 1], [-1, 1, 1])
         return tf.sqrt((grid_centers[0] - X)**2 + (grid_centers[1] - Y)**2)
+
+    
+    def extend_limits(self, limits, *args, **kwargs):
+        min_x = limits[0]*1.25 if limits[0] < 0 else limits[0]*0.75
+        max_x = limits[1]*1.25 if limits[1] >= 0 else limits[1]*0.75
+        min_y = limits[2]*1.25 if limits[2] < 0 else limits[2]*0.75
+        max_y = limits[3]*1.25 if limits[3] >= 0 else limits[3]*0.75
+        max_x += self.cell_size
+        max_y += self.cell_size
+        return [min_x, max_x, min_y, max_y]
 
 
     def find_indexes(self, positions, grid_centers, *args, **kwargs):
@@ -49,7 +53,7 @@ class Coarse_Graining(Coarse_Base):
 
     def density_grid_updater(self, *args, **kwargs):
         self.idxs = self.find_indexes(self.pos, [self.xx, self.yy])        
-        densities_updates = self.calculate_densities(self.idxs)
+        # self.densities_updates = self.calculate_densities(self.idxs)
 
 
     def start_tf_variables(self, *args, **kwargs):
@@ -59,14 +63,12 @@ class Coarse_Graining(Coarse_Base):
 
 
     def start_grids(self, X, Y, *args, **kwargs):
-        min_x = X.min()*1.25 if X.min() < 0 else X.min()*0.75
-        max_x = X.max()*1.25 if X.max() >= 0 else X.max()*0.75
-        min_y = Y.min()*1.25 if Y.min() < 0 else Y.min()*0.75
-        max_y = Y.max()*1.25 if Y.max() >= 0 else Y.max()*0.75
-        max_x += self.cell_size
-        max_y += self.cell_size
-        self.xs = np.arange(min_x, max_x, self.cell_size)
-        self.ys = np.arange(min_y, max_y, self.cell_size)
+        limits = getattr(self, "limits", None)        
+        if not limits:
+            limits = [X.min(), X.max(), Y.min(), Y.max()]
+        limits = self.extend_limits(limits)        
+        self.xs = np.arange(*limits[:2], self.cell_size)
+        self.ys = np.arange(*limits[2:], self.cell_size)
         self.xx, self.yy = np.meshgrid(self.ys, self.xs)
         self.densities = np.zeros(self.xx.shape)
         self.momentum = np.zeros(self.xx.shape + (2,))

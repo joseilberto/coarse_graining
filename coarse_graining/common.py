@@ -75,4 +75,5 @@ class Coarse_Base:
         minimum = tf.where(idxs[:, 0] <= 0, zeros_reference, idxs[:, 0])
         maximum = tf.where(idxs[:, 1] > grid_length, maxima_reference, 
                             idxs[:, 1])
-        return tf.stack([minimum, maximum], axis = 1)
+        length = maximum - minimum
+        return tf.stack([minimum, length], axis = 1)

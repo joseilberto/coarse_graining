@@ -6,11 +6,13 @@ from .common import Coarse_Base
 class Coarse_Graining(Coarse_Base):
     def calculate_densities(self, idxs, *args, **kwargs):
         masses = self.find_sphere_masses()
-        centers = tf.stack([idxs[:, 2, 0], idxs[:, 2, 1]], axis = 1)        
-        x_grids = tf.ragged.range(starts = idxs[:, 0, 0], limits = idxs[:, 0, 1])
-        y_grids = tf.ragged.range(starts = idxs[:, 1, 0], limits = idxs[:, 1, 1])        
-        densities_x = self.fill_density_grids(x_grids, centers[:, 0], masses)
-        densities_y = self.fill_density_grids(y_grids, centers[:, 1], masses)
+        initial = idxs[:, :, 0]
+        final = initial + idxs[:, :, 1]
+        centers = idxs[:, :, 2]
+        self.x_grids = tf.ragged.range(starts = initial[:, 0], limits = final[:, 0])
+        self.y_grids = tf.ragged.range(starts = initial[:, 1], limits = final[:, 1])        
+        # densities_x = self.fill_density_grids(x_grids, centers[:, 0], masses)
+        # densities_y = self.fill_density_grids(y_grids, centers[:, 1], masses)
 
     
     def calculate_distances(self, positions, grid_centers, *args, **kwargs):
@@ -42,8 +44,8 @@ class Coarse_Graining(Coarse_Base):
         ys_idxs = self.constrain_idxs(idxs[:, 1, :], 
                                             grid_centers[0].shape[1] - 1)
         minima = tf.stack([xs_idxs[:, 0], ys_idxs[:, 0]], axis = 1)
-        maxima = tf.stack([xs_idxs[:, 1], ys_idxs[:, 1]], axis = 1)
-        idxs = tf.stack([minima, maxima, centers], axis = 1)
+        length = tf.stack([xs_idxs[:, 1], ys_idxs[:, 1]], axis = 1)
+        idxs = tf.stack([minima, length, centers], axis = 1)
         return tf.transpose(idxs, perm = [0, 2, 1])
         
 
@@ -53,7 +55,7 @@ class Coarse_Graining(Coarse_Base):
 
     def density_grid_updater(self, *args, **kwargs):
         self.idxs = self.find_indexes(self.pos, [self.xx, self.yy])        
-        # self.densities_updates = self.calculate_densities(self.idxs)
+        self.densities_updates = self.calculate_densities(self.idxs)
 
 
     def start_tf_variables(self, *args, **kwargs):
@@ -83,8 +85,9 @@ class Coarse_Graining(Coarse_Base):
         session = tf.Session()
         init = tf.global_variables_initializer()
         session.run(init)
-        test_var = session.run(self.idxs,
+        test_var, test_var2, test_var3 = session.run((self.x_grids, self.y_grids, self.idxs),
                         feed_dict = {
                             self.pos: np.column_stack((X, Y)),
                             self.radii: radii,
                         })
+        session.close()

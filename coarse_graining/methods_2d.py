@@ -1,17 +1,31 @@
+import matplotlib; matplotlib.use("TkAgg")
+import matplotlib.pyplot as plt
+
 import numpy as np
 import tensorflow as tf
 
 from .common import Coarse_Base
 
 class Coarse_Graining(Coarse_Base):
-    def calculate_densities(self, regions, masses, *args, **kwargs):
-        pass
-
-
     def calculate_distances(self, positions, grid_centers, *args, **kwargs):
         X = tf.reshape(positions[:, 0], [-1, 1, 1])
         Y = tf.reshape(positions[:, 1], [-1, 1, 1])
         return tf.sqrt((grid_centers[0] - X)**2 + (grid_centers[1] - Y)**2)
+
+
+    def density_grid_updater(self, X, Y, *args, **kwargs):
+        self.idxs = self.find_indexes(self.pos, [self.xx, self.yy])        
+        self.regions = self.find_regions(X, Y)
+        masses = self.find_sphere_masses()
+        self.density_updates = self.densities_updater(self.regions, masses)
+
+
+    def densities_updater(self, regions, masses, *args, **kwargs):
+        volume_fraction = tf.exp(regions**2 / (2 * self.W))
+        total_volume = tf.reduce_sum(volume_fraction, axis = [1, 2])
+        mass_density = masses*(1/self.cell_size**2)
+        scaled_mass = tf.reshape(mass_density / total_volume, [-1, 1, 1])
+        return scaled_mass * volume_fraction
 
     
     def extend_limits(self, limits, *args, **kwargs):
@@ -55,14 +69,35 @@ class Coarse_Graining(Coarse_Base):
         
 
     def find_sphere_masses(self, *args, **kwargs):
-        return self.radii*(4/3)*np.pi*self.density
+        return 4*np.pi*self.radii
 
 
-    def density_grid_updater(self, X, Y, *args, **kwargs):
-        self.idxs = self.find_indexes(self.pos, [self.xx, self.yy])        
-        self.regions = self.find_regions(X, Y)
-        masses = self.find_sphere_masses()
-        density_updates = self.calculate_densities(self.regions, masses)        
+    def kinetic_stress(self, X, Y, V_X, V_Y, radii, *args, **kwargs):
+        self.make_updates(X, Y, V_X, V_Y, radii, *args, **kwargs)
+
+
+    def make_updates(self, X, Y, V_X, V_Y, radii, *args, **kwargs):
+        self.session = tf.InteractiveSession()
+        self.start_tf_variables()
+        self.start_grids(X, Y, *args, **kwargs)
+        self.density_grid_updater(X, Y)
+        init = tf.global_variables_initializer()
+        self.session.run(init)
+        idxs, density_updates = self.session.run((self.idxs, self.density_updates),
+                        feed_dict = {
+                            self.pos: np.column_stack((X, Y)),
+                            self.radii: radii,
+                        })        
+        self.densities = self.update_grid(self.densities, idxs, density_updates)
+        self.plot_grid(self.densities, self.xs, self.ys)
+        self.session.close()
+
+    
+    def plot_grid(self, grid, xs, ys, *args, **kwargs):
+        fig, ax = plt.subplots()
+        ax.contourf(xs, ys, grid)
+        plt.show()
+        
 
 
     def start_tf_variables(self, *args, **kwargs):
@@ -82,20 +117,12 @@ class Coarse_Graining(Coarse_Base):
         self.densities = np.zeros(self.xx.shape)
         self.momentum = np.zeros(self.xx.shape + (2,))
         self.kinetic = np.zeros(self.xx.shape + (4,))
-        self.kinect_trace = np.zeros(self.xx.shape)
+        self.kinect_trace = np.zeros(self.xx.shape)        
 
-
-    def kinetic_stress(self, X, Y, V_X, V_Y, radii, *args, **kwargs):
-        self.session = tf.InteractiveSession()
-        self.start_tf_variables()
-        self.start_grids(X, Y, *args, **kwargs)
-        self.density_grid_updater(X, Y)
-        init = tf.global_variables_initializer()
-        self.session.run(init)
-        test_var, test_var2 = self.session.run((self.idxs, self.x_grids),
-                        feed_dict = {
-                            self.pos: np.column_stack((X, Y)),
-                            self.radii: radii,
-                        })        
-        import ipdb; ipdb.set_trace()
-        self.session.close()
+    
+    def update_grid(self, grid, idxs, updates, *args, **kwargs):
+        for idx, region in enumerate(idxs):
+            min_x, max_x = region[:, 0]
+            min_y, max_y = region[:, 1]
+            grid[min_y:max_y, min_x:max_x] += updates[idx]            
+        return grid

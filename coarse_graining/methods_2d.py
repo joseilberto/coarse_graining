@@ -21,11 +21,11 @@ class Coarse_Graining(Coarse_Base):
 
 
     def densities_updater(self, regions, masses, *args, **kwargs):
-        volume_fraction = tf.exp(regions**2 / (2 * self.W))
-        total_volume = tf.reduce_sum(volume_fraction, axis = [1, 2])
+        self.volume_fraction = tf.exp(-regions**2 / (2 * self.W**2))
+        total_volume = tf.reduce_sum(self.volume_fraction, axis = [1, 2])
         mass_density = masses*(1/self.cell_size**2)
-        scaled_mass = tf.reshape(mass_density / total_volume, [-1, 1, 1])
-        return scaled_mass * volume_fraction
+        scaled_mass = tf.reshape(mass_density / total_volume, [-1, 1, 1])        
+        return scaled_mass * self.volume_fraction
 
     
     def extend_limits(self, limits, *args, **kwargs):
@@ -87,15 +87,17 @@ class Coarse_Graining(Coarse_Base):
                         feed_dict = {
                             self.pos: np.column_stack((X, Y)),
                             self.radii: radii,
-                        })        
+                        })   
         self.densities = self.update_grid(self.densities, idxs, density_updates)
-        self.plot_grid(self.densities, self.xs, self.ys)
+        self.plot_grid(self.densities, self.xx, self.yy)
         self.session.close()
 
     
     def plot_grid(self, grid, xs, ys, *args, **kwargs):
         fig, ax = plt.subplots()
-        ax.contourf(xs, ys, grid)
+        contour = ax.pcolor(xs, ys, grid)
+        color_bar = plt.colorbar(contour)
+        color_bar.ax.set_ylabel(r"$\rho (kg/m^2)$")
         plt.show()
         
 
@@ -117,9 +119,9 @@ class Coarse_Graining(Coarse_Base):
         self.densities = np.zeros(self.xx.shape)
         self.momentum = np.zeros(self.xx.shape + (2,))
         self.kinetic = np.zeros(self.xx.shape + (4,))
-        self.kinect_trace = np.zeros(self.xx.shape)        
+        self.kinect_trace = np.zeros(self.xx.shape)
 
-    
+
     def update_grid(self, grid, idxs, updates, *args, **kwargs):
         for idx, region in enumerate(idxs):
             min_x, max_x = region[:, 0]

@@ -65,11 +65,17 @@ class Coarse_Base:
         return self.epsilon * self.W / self.n_points
     
 
-    def plot_grid(self, grid, xs, ys, *args, **kwargs):
+    def plot_grid(self, grid, xs, ys, plot_type = None, *args, **kwargs):
+        if "density" in plot_type:
+            colorbar_ylabel = r"$\rho (kg/m^2)$"
+        elif "momentum" in plot_type:
+            colorbar_ylabel = r"$p (kg \, \cdotp m/s)$"
+        elif "stress" in plot_type:
+            colorbar_ylabel = r"$\alpha$"
         fig, ax = plt.subplots()
         contour = ax.pcolor(xs, ys, grid)
         color_bar = plt.colorbar(contour)
-        color_bar.ax.set_ylabel(r"$\rho (kg/m^2)$")
+        color_bar.ax.set_ylabel(colorbar_ylabel)
         plt.show()
     
 

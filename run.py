@@ -70,14 +70,13 @@ def file_processing(file, ratio, diameter, viscosity, angle, *args,
     })
     times = np.unique(data[:, 2])
     radius_in_meter = radius*10**(-3)
-    for time in times:
+    for idx, time in enumerate(times[:60]):
         coarser = Coarse_Graining(**kwargs)
         cur_data = data[data[:, 2] == time]
         X, Y = cur_data[:, 0], cur_data[:, 1]
         V_X, V_Y = cur_data[:, 4], cur_data[:, 5]
         radii = cur_data[:, 6]*10**(-3)
-        coarse_graining_data = coarser.kinetic_stress(X, Y, V_X, V_Y,
-                                                      radii, **kwargs)
+        coarser.make_updates(X, Y, V_X, V_Y, radii, **kwargs)
 
 
 def run_coarse_graining(stationary_path, parameters, *args, **kwargs):

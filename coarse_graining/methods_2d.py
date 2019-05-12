@@ -1,6 +1,3 @@
-import matplotlib; matplotlib.use("TkAgg")
-import matplotlib.pyplot as plt
-
 import numpy as np
 import tensorflow as tf
 
@@ -89,17 +86,7 @@ class Coarse_Graining(Coarse_Base):
                             self.radii: radii,
                         })   
         self.densities = self.update_grid(self.densities, idxs, density_updates)
-        self.plot_grid(self.densities, self.xx, self.yy)
         self.session.close()
-
-    
-    def plot_grid(self, grid, xs, ys, *args, **kwargs):
-        fig, ax = plt.subplots()
-        contour = ax.pcolor(xs, ys, grid)
-        color_bar = plt.colorbar(contour)
-        color_bar.ax.set_ylabel(r"$\rho (kg/m^2)$")
-        plt.show()
-        
 
 
     def start_tf_variables(self, *args, **kwargs):

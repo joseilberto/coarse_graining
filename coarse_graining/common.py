@@ -1,3 +1,5 @@
+import matplotlib; matplotlib.use("TkAgg")
+import matplotlib.pyplot as plt
 import tensorflow as tf
 
 
@@ -61,3 +63,14 @@ class Coarse_Base:
     @property
     def cell_size(self):
         return self.epsilon * self.W / self.n_points
+    
+
+    def plot_grid(self, grid, xs, ys, *args, **kwargs):
+        fig, ax = plt.subplots()
+        contour = ax.pcolor(xs, ys, grid)
+        color_bar = plt.colorbar(contour)
+        color_bar.ax.set_ylabel(r"$\rho (kg/m^2)$")
+        plt.show()
+    
+
+    #TODO Plotly can be used to make the plots and animations

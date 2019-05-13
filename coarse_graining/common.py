@@ -1,5 +1,6 @@
 import matplotlib; matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
+import numpy as np
 import tensorflow as tf
 
 
@@ -65,18 +66,31 @@ class Coarse_Base:
         return self.epsilon * self.W / self.n_points
     
 
-    def plot_grid(self, grid, xs, ys, plot_type = None, *args, **kwargs):
+    def plot_raveled(self, X, Y, data, plot_type = None, *args, **kwargs):
         if "density" in plot_type:
             colorbar_ylabel = r"$\rho (kg/m^2)$"
         elif "momentum" in plot_type:
-            colorbar_ylabel = r"$p (kg \, \cdotp m/s)$"
+            colorbar_ylabel = r"$p (kg / m^2 \, \cdotp s)$"
         elif "stress" in plot_type:
             colorbar_ylabel = r"$\alpha$"
         fig, ax = plt.subplots()
-        contour = ax.pcolor(xs, ys, grid)
-        color_bar = plt.colorbar(contour)
+        scatter_plot = ax.scatter(X, Y, c = data, cmap = "coolwarm", s = 0.2)
+        color_bar = plt.colorbar(scatter_plot)
         color_bar.ax.set_ylabel(colorbar_ylabel)
         plt.show()
+
     
+    def plot_grid(self, xs, ys, grid, plot_type = None, *args, **kwargs):
+        if "density" in plot_type:
+            colorbar_ylabel = r"$\rho (kg/m^2)$"
+        elif "momentum" in plot_type:
+            colorbar_ylabel = r"$p (kg / m^2 \, \cdotp s)$"
+        elif "stress" in plot_type:
+            colorbar_ylabel = r"$\alpha$"
+        fig, ax = plt.subplots()
+        pcolor = ax.pcolor(xs, ys, grid, cmap = "coolwarm")
+        color_bar = plt.colorbar(scatter_plot)
+        color_bar.ax.set_ylabel(colorbar_ylabel)
+        plt.show()
 
     #TODO Plotly can be used to make the plots and animations

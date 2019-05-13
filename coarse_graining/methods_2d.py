@@ -36,7 +36,8 @@ class Coarse_Graining(Coarse_Base):
                         })   
         self.session.close()
         del self.session
-        self.densities = self.update_grid(self.densities, idxs, density_updates)        
+        self.densities = self.update_grid(self.densities, idxs, density_updates)
+        self.densities_raveled = self.ravel_grid(self.densities)        
 
 
     def fill_momenta_grid(self, X, Y, V_X, V_Y, radii, *args, **kwargs):
@@ -59,6 +60,7 @@ class Coarse_Graining(Coarse_Base):
         self.session.close()
         del self.session
         self.momenta = self.update_grid(self.momenta, idxs, momenta_updates)
+        self.momenta_raveled = self.ravel_grid(self.momenta)
 
 
     def find_indexes(self, positions, grid_centers, *args, **kwargs):
@@ -106,6 +108,21 @@ class Coarse_Graining(Coarse_Base):
         self.fill_density_grid(X, Y, radii)
         self.fill_momenta_grid(X, Y, V_X, V_Y, radii)              
 
+    
+    def ravel_meshes(self, xs, ys, *args, **kwargs):
+        combinations = np.stack((xs, ys), axis = 2)
+        y_dim, x_dim, dims = combinations.shape
+        return combinations.reshape((y_dim*x_dim, dims))
+
+
+    def ravel_grid(self, grid, *args, **kwargs):
+        try:
+            y_dim, x_dim, dims = grid.shape
+            return grid.reshape((y_dim*x_dim, dims))
+        except ValueError:
+            y_dim, x_dim = grid.shape
+            grid.reshape(y_dim*x_dim)
+
  
     def start_grids_and_variables(self, X, Y, *args, **kwargs):
         limits = getattr(self, "limits", None)        
@@ -115,6 +132,7 @@ class Coarse_Graining(Coarse_Base):
         self.xs = np.arange(*limits[:2], self.cell_size)
         self.ys = np.arange(*limits[2:], self.cell_size)
         self.xx, self.yy = np.meshgrid(self.xs, self.ys)
+        self.positions = self.ravel_meshes(self.xx, self.yy)        
         self.densities = np.zeros(self.xx.shape)
         self.momenta = np.zeros(self.xx.shape + (2,))
         self.kinetic = np.zeros(self.xx.shape + (4,))
@@ -145,8 +163,9 @@ class Coarse_Graining(Coarse_Base):
         if not hasattr(self, "volume_fraction"):
             self.volume_fraction = tf.exp(-regions**2 / (2 * self.W**2))
         total_volume = tf.reduce_sum(self.volume_fraction, axis = [1, 2])
-        scaled_momentum_x = tf.reshape(self.vels[:, 0]*masses/total_volume, 
+        mass_density = masses*(1/self.cell_size**2)
+        scaled_momentum_x = tf.reshape(self.vels[:, 0]*mass_density/total_volume, 
                                         [-1, 1, 1])*self.volume_fraction
-        scaled_momentum_y = tf.reshape(self.vels[:, 1]*masses/total_volume, 
+        scaled_momentum_y = tf.reshape(self.vels[:, 1]*mass_density/total_volume, 
                                         [-1, 1, 1])*self.volume_fraction
         return tf.stack([scaled_momentum_x, scaled_momentum_y], axis = 3)

@@ -1,4 +1,6 @@
-import matplotlib; matplotlib.use("TkAgg")
+import matplotlib
+matplotlib.interactive(False)
+matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
@@ -70,7 +72,7 @@ class Coarse_Base:
         if "density" in plot_type:
             colorbar_ylabel = r"$\rho (kg/m^2)$"
         elif "momentum" in plot_type:
-            colorbar_ylabel = r"$p (kg / m^2 \, \cdotp s)$"
+            colorbar_ylabel = r"$p (N \, \cdotp s)$"
         elif "stress" in plot_type:
             colorbar_ylabel = r"$\alpha$"
         fig, ax = plt.subplots()
@@ -84,13 +86,13 @@ class Coarse_Base:
         if "density" in plot_type:
             colorbar_ylabel = r"$\rho (kg/m^2)$"
         elif "momentum" in plot_type:
-            colorbar_ylabel = r"$p (kg / m^2 \, \cdotp s)$"
+            colorbar_ylabel = r"$p (N \, \cdotp s)$"
         elif "stress" in plot_type:
             colorbar_ylabel = r"$\alpha$"
         fig, ax = plt.subplots()
         pcolor = ax.pcolor(xs, ys, grid, cmap = "coolwarm")
-        color_bar = plt.colorbar(scatter_plot)
+        color_bar = plt.colorbar(pcolor)
         color_bar.ax.set_ylabel(colorbar_ylabel)
-        plt.show()
+        return fig
 
     #TODO Plotly can be used to make the plots and animations

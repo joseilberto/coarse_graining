@@ -37,7 +37,9 @@ class Coarse_Graining(Coarse_Base):
         self.session.close()
         del self.session
         self.densities = self.update_grid(self.densities, idxs, density_updates)
-        self.densities_raveled = self.ravel_grid(self.densities)        
+        self.densities_raveled = self.ravel_grid(self.densities)
+        self.densities_grid_plot = self.plot_grid(self.xx, self.yy, 
+                                    self.densities, plot_type = "density")                        
 
 
     def fill_momenta_grid(self, X, Y, V_X, V_Y, radii, *args, **kwargs):
@@ -60,7 +62,11 @@ class Coarse_Graining(Coarse_Base):
         self.session.close()
         del self.session
         self.momenta = self.update_grid(self.momenta, idxs, momenta_updates)
-        self.momenta_raveled = self.ravel_grid(self.momenta)
+        self.momenta_raveled = self.ravel_grid(self.momenta)        
+        total_momentum = np.sqrt(self.momenta[:, :, 0]**2 
+                                    + self.momenta[:, :, 1]**2)        
+        self.momenta_grid_plot = self.plot_grid(self.xx, self.yy,
+                                total_momentum, plot_type = "momentum")
 
 
     def find_indexes(self, positions, grid_centers, *args, **kwargs):

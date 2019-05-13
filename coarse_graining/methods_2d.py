@@ -43,6 +43,8 @@ class Coarse_Graining(Coarse_Base):
 
 
     def fill_momenta_grid(self, X, Y, V_X, V_Y, radii, *args, **kwargs):
+        if not hasattr(self, "densities_raveled"):
+            self.fill_density_grid(X, Y, radii)
         if not hasattr(self, "session"):
             self.session = tf.InteractiveSession()
         if not hasattr(self, "idxs"):
@@ -50,10 +52,10 @@ class Coarse_Graining(Coarse_Base):
         if not hasattr(self, "regions"):           
             self.regions = self.find_regions(X, Y)
         masses = self.find_sphere_masses()
-        momenta_updates = self.updater_momenta(self.regions, masses)
+        velocity_updates = self.updater_velocities(self.regions)
         init = tf.global_variables_initializer()
         self.session.run(init)
-        idxs, momenta_updates = self.session.run((self.idxs, momenta_updates),
+        idxs, velocity_updates = self.session.run((self.idxs, velocity_updates),
                         feed_dict = {
                             self.pos: np.column_stack((X, Y)),
                             self.vels: np.column_stack((V_X, V_Y)),
@@ -61,12 +63,16 @@ class Coarse_Graining(Coarse_Base):
                         })
         self.session.close()
         del self.session
-        self.momenta = self.update_grid(self.momenta, idxs, momenta_updates)
-        self.momenta_raveled = self.ravel_grid(self.momenta)        
-        total_momentum = np.sqrt(self.momenta[:, :, 0]**2 
-                                    + self.momenta[:, :, 1]**2)        
-        self.momenta_grid_plot = self.plot_grid(self.xx, self.yy,
-                                total_momentum, plot_type = "momentum")
+        self.velocities = self.update_grid(self.velocities, idxs, 
+                                                    velocity_updates)
+        total_velocity = np.sqrt(self.velocities[:, :, 0]**2 
+                                    + self.velocities[:, :, 1]**2)
+        self.velocities_raveled = self.ravel_grid(self.velocities)
+        self.velocity_grid_plot = self.plot_grid(self.xx, self.yy, 
+                                    total_velocity, plot_type = "velocity")        
+        self.momenta[:, :, 0] = self.velocities[:, :, 0] * self.densities
+        self.momenta[:, :, 1] = self.velocities[:, :, 1] * self.densities
+        self.momenta_raveled = self.ravel_grid(self.momenta)                        
 
 
     def find_indexes(self, positions, grid_centers, *args, **kwargs):
@@ -140,6 +146,7 @@ class Coarse_Graining(Coarse_Base):
         self.xx, self.yy = np.meshgrid(self.xs, self.ys)
         self.positions = self.ravel_meshes(self.xx, self.yy)        
         self.densities = np.zeros(self.xx.shape)
+        self.velocities = np.zeros(self.xx.shape + (2,))
         self.momenta = np.zeros(self.xx.shape + (2,))
         self.kinetic = np.zeros(self.xx.shape + (4,))
         self.kinect_trace = np.zeros(self.xx.shape)
@@ -165,13 +172,12 @@ class Coarse_Graining(Coarse_Base):
         return scaled_mass * self.volume_fraction
     
 
-    def updater_momenta(self, regions, masses, *args, **kwargs):
+    def updater_velocities(self, regions, *args, **kwargs):
         if not hasattr(self, "volume_fraction"):
             self.volume_fraction = tf.exp(-regions**2 / (2 * self.W**2))
         total_volume = tf.reduce_sum(self.volume_fraction, axis = [1, 2])
-        mass_density = masses*(1/self.cell_size**2)
-        scaled_momentum_x = tf.reshape(self.vels[:, 0]*mass_density/total_volume, 
+        velocity_x = tf.reshape(self.vels[:, 0]/total_volume, 
                                         [-1, 1, 1])*self.volume_fraction
-        scaled_momentum_y = tf.reshape(self.vels[:, 1]*mass_density/total_volume, 
+        velocity_y = tf.reshape(self.vels[:, 1]/total_volume, 
                                         [-1, 1, 1])*self.volume_fraction
-        return tf.stack([scaled_momentum_x, scaled_momentum_y], axis = 3)
+        return tf.stack([velocity_x, velocity_y], axis = 3)

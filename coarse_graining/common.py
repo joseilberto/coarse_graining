@@ -85,6 +85,8 @@ class Coarse_Base:
     def plot_grid(self, xs, ys, grid, plot_type = None, *args, **kwargs):
         if "density" in plot_type:
             colorbar_ylabel = r"$\rho (kg/m^2)$"
+        elif "velocity" in plot_type:
+            colorbar_ylabel = r"$|\mathbf{v}| (m/s)$"
         elif "momentum" in plot_type:
             colorbar_ylabel = r"$p (N \, \cdotp s)$"
         elif "stress" in plot_type:

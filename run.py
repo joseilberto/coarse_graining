@@ -79,8 +79,8 @@ def file_processing(file, ratio, diameter, viscosity, angle, *args,
         V_X, V_Y = cur_data[:, 4], np.abs(cur_data[:, 5])
         radii = cur_data[:, 6]*10**(-3)
         coarser.make_updates(X, Y, V_X, V_Y, radii, **kwargs)
-        coarser.densities_grid_plot.show()        
-        plt.pause(10)
+        coarser.velocity_grid_plot.show()        
+        plt.pause(30)
         momentum.append(coarser.momenta_raveled[:, 1])
     momentum = np.stack(momentum, axis = 0)
     positions = coarser.positions

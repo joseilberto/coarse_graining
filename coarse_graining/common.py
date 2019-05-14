@@ -80,6 +80,8 @@ class Coarse_Base:
         fig, ax = plt.subplots()
         scatter_plot = ax.scatter(X, Y, c = data, cmap = "coolwarm", s = 0.2)
         color_bar = plt.colorbar(scatter_plot)
+        ax.set_xlabel(r"$x (m)$")
+        ax.set_ylabel(r"$y (m)$")
         color_bar.ax.set_ylabel(colorbar_ylabel)
         plt.show()
 
@@ -95,8 +97,10 @@ class Coarse_Base:
             colorbar_ylabel = r"$Tr(\sigma_{ab}) (N / m)$"
         fig, ax = plt.subplots()
         pcolor = ax.pcolor(xs, ys, grid, cmap = "coolwarm")
+        ax.set_xlabel(r"$x (m)$")
+        ax.set_ylabel(r"$y (m)$")
         color_bar = plt.colorbar(pcolor)
         color_bar.ax.set_ylabel(colorbar_ylabel)
-        return fig
+        plt.show()
 
     #TODO Plotly can be used to make the plots and animations

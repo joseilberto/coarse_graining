@@ -59,7 +59,7 @@ class Coarse_Graining(Coarse_Base):
         del self.session        
         self.kinetic = self.update_grid(self.kinetic, idxs, kinetic_updates)
         self.kinetic_trace = self.kinetic[:, :, 0, 0] + self.kinetic[:, :, 1, 1]
-        self.kinetic_raveled = self.ravel_grid(self.kinetic_trace)        
+        self.kinetic_raveled = self.ravel_grid(self.kinetic_trace)   
 
 
     def fill_momenta_grid(self, X, Y, V_X, V_Y, radii, *args, **kwargs):
@@ -149,7 +149,7 @@ class Coarse_Graining(Coarse_Base):
             return grid.reshape((y_dim*x_dim, dims))
         except ValueError:
             y_dim, x_dim = grid.shape
-            grid.reshape(y_dim*x_dim)
+            return grid.reshape(y_dim*x_dim)
 
  
     def start_grids_and_variables(self, X, Y, *args, **kwargs):

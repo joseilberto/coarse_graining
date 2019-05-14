@@ -14,7 +14,7 @@ class Coarse_Graining(Coarse_Base):
                     function = function, limits = limits, n_points = n_points, 
                     W = W, *args, **kwargs)
 
-    
+
     def densities(self, X, Y, radii, *args, **kwargs):
         self._calc_class.fill_density_grid(X, Y, radii, *args, **kwargs)
         extras = ["densities_grid", "densities_grid_raveled"]
@@ -42,7 +42,6 @@ class Coarse_Graining(Coarse_Base):
         self._transfer_variables(from_class = self._calc_class, to_class = self, 
                                     extras = extras)
         
-
 
 class CG_Calculator(Coarse_Base):
     def calculate_distances(self, positions, grid_centers, *args, **kwargs):
@@ -84,9 +83,7 @@ class CG_Calculator(Coarse_Base):
         self.densities_grid_raveled = self.ravel_grid(self.densities_grid)        
 
 
-    def fill_kinetic_stress_grid(self, X, Y, V_X, V_Y, radii, *args, **kwargs):
-        if not hasattr(self, "xx"):
-            self.start_grids_and_variables(X, Y, *args, **kwargs)        
+    def fill_kinetic_stress_grid(self, X, Y, V_X, V_Y, radii, *args, **kwargs):       
         if not hasattr(self, "velocity_updates"):
             self.fill_momenta_grid(X, Y, V_X, V_Y, radii)
         if not hasattr(self, "session"):            
@@ -110,10 +107,8 @@ class CG_Calculator(Coarse_Base):
         self.kinetic_grid_raveled = self.ravel_grid(self.kinetic_trace)   
 
 
-    def fill_momenta_grid(self, X, Y, V_X, V_Y, radii, *args, **kwargs):
-        if not hasattr(self, "xx"):
-            self.start_grids_and_variables(X, Y, *args, **kwargs)   
-        if not hasattr(self, "densities_raveled"):
+    def fill_momenta_grid(self, X, Y, V_X, V_Y, radii, *args, **kwargs): 
+        if not hasattr(self, "densities_grid_raveled"):
             self.fill_density_grid(X, Y, radii)
         if not hasattr(self, "session"):
             self.session = tf.InteractiveSession()        

@@ -71,10 +71,12 @@ class Coarse_Base:
     def plot_raveled(self, X, Y, data, plot_type = None, *args, **kwargs):
         if "density" in plot_type:
             colorbar_ylabel = r"$\rho (kg/m^2)$"
+        elif "velocity" in plot_type:
+            colorbar_ylabel = r"$|\mathbf{v}| (m/s)$"
         elif "momentum" in plot_type:
             colorbar_ylabel = r"$p (N \, \cdotp s)$"
-        elif "stress" in plot_type:
-            colorbar_ylabel = r"$\alpha$"
+        elif "kinetic" in plot_type:
+            colorbar_ylabel = r"$Tr(\sigma_{ab}) (N / m)$"
         fig, ax = plt.subplots()
         scatter_plot = ax.scatter(X, Y, c = data, cmap = "coolwarm", s = 0.2)
         color_bar = plt.colorbar(scatter_plot)

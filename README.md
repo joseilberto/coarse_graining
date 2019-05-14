@@ -11,7 +11,8 @@ Add some example later.
 ## TODO List  ##
 
 Coarse-graining parameters:
-- [ ] System type: 2D or 3D;
+- [X] System type: 2D;
+- [ ] System type: 3D;
 - [X] Particle density (rho);
 - [X] Particle radius if not contained in file (R);
 - [X] Grid size of particle coarse-graining ("n_points");
@@ -25,13 +26,13 @@ Reading data:
 
 Lattice:
 - [ ] Handle lattices that does not fit into memory (CPU and GPU cases);
-- [ ] Methods for 2D and 3D systems designed separately;
-- [ ] Momentum fields;
-- [ ] Density fields;
-- [ ] Trace of kinetic stress tensor fields;
+- [X] Methods for 2D and 3D systems designed separately;
+- [X] Momentum fields;
+- [X] Density fields;
+- [X] Trace of kinetic stress tensor fields;
 - [ ] Data should be stored in .npy or .csv files.
 
 Visualization:
-- [ ] For all fields:
+- [X] For all fields:
 - [ ] Images should be retrieved;
 - [ ] Videos should be recorded.

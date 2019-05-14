@@ -71,22 +71,19 @@ def file_processing(file, ratio, diameter, viscosity, angle, *args,
     })
     times = np.unique(data[:, 2])
     radius_in_meter = radius*10**(-3)
-    momentum = []
-    for idx, time in enumerate(times[::10]):
+    stress = []
+    for idx, time in enumerate(times[::20]):
         coarser = Coarse_Graining(**kwargs)
         cur_data = data[data[:, 2] == time]
         X, Y = cur_data[:, 0], cur_data[:, 1]
         V_X, V_Y = cur_data[:, 4], np.abs(cur_data[:, 5])
         radii = cur_data[:, 6]*10**(-3)
-        coarser.make_updates(X, Y, V_X, V_Y, radii, **kwargs)
-        coarser.velocity_grid_plot.show()        
-        plt.pause(30)
-        momentum.append(coarser.momenta_raveled[:, 1])
-    momentum = np.stack(momentum, axis = 0)
-    positions = coarser.positions
-    X, Y = positions[:, 0], positions[:, 1]
-    coarser.plot_raveled(X, Y, np.mean(momentum, axis = 0), 
-                        plot_type = "momentum")
+        coarser.make_updates(X, Y, V_X, V_Y, radii, **kwargs)        
+        stress.append(coarser.kinetic_raveled)
+    stress = np.stack(stress, axis = 0)
+    X, Y = coarser.positions[:, 0], coarser.positions[:, 1]
+    coarser.plot_raveled(X, Y, np.mean(stress, axis = 0), 
+                        plot_type = "kinetic")
 
 
 def run_coarse_graining(stationary_path, parameters, *args, **kwargs):

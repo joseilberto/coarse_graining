@@ -103,4 +103,13 @@ class Coarse_Base:
         color_bar.ax.set_ylabel(colorbar_ylabel)
         plt.show()
 
+
+    def _transfer_variables(self, from_class, to_class, extras, *args, **kwargs):
+        variables = ["xx", "yy", "positions"]
+        variables.extend(extras)
+        for variable in variables:
+            if hasattr(from_class, variable):                
+                setattr(to_class, variable, getattr(from_class, variable))
+
+
     #TODO Plotly can be used to make the plots and animations

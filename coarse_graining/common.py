@@ -89,8 +89,8 @@ class Coarse_Base:
             colorbar_ylabel = r"$|\mathbf{v}| (m/s)$"
         elif "momentum" in plot_type:
             colorbar_ylabel = r"$p (N \, \cdotp s)$"
-        elif "stress" in plot_type:
-            colorbar_ylabel = r"$\alpha$"
+        elif "kinetic" in plot_type:
+            colorbar_ylabel = r"$Tr(\sigma_{ab}) (N / m)$"
         fig, ax = plt.subplots()
         pcolor = ax.pcolor(xs, ys, grid, cmap = "coolwarm")
         color_bar = plt.colorbar(pcolor)

@@ -67,7 +67,6 @@ class Coarse_Graining(Coarse_Base):
             self.fill_density_grid(X, Y, radii)
         if not hasattr(self, "session"):
             self.session = tf.InteractiveSession()        
-        masses = self.find_sphere_masses()
         self.velocity_updates = self.updater_velocities()
         init = tf.global_variables_initializer()
         self.session.run(init)
@@ -81,9 +80,7 @@ class Coarse_Graining(Coarse_Base):
         self.session.close()
         del self.session
         self.velocities = self.update_grid(self.velocities, idxs, 
-                                                    velocity_updates)
-        total_velocity = np.sqrt(self.velocities[:, :, 0]**2 
-                                    + self.velocities[:, :, 1]**2)
+                                                    velocity_updates)        
         self.velocities_raveled = self.ravel_grid(self.velocities)                
         self.momenta[:, :, 0] = self.velocities[:, :, 0] * self.densities
         self.momenta[:, :, 1] = self.velocities[:, :, 1] * self.densities

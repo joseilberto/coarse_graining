@@ -7,6 +7,7 @@ from .common import Coarse_Base
 class Coarse_Graining(Coarse_Base):
     def __init__(self, density = None, epsilon = None, function = "gaussian",
                     limits = [], n_points = None, W = None, *args, **kwargs):
+        tf.reset_default_graph()
         self._calc_class = CG_Calculator(density = density, epsilon = epsilon, 
                     function = function, limits = limits, n_points = n_points, 
                     W = W, *args, **kwargs)

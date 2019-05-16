@@ -68,21 +68,29 @@ class Coarse_Base:
         return self.epsilon * self.W / self.n_points
     
 
-    def plot_raveled(self, X, Y, data, plot_type = None, *args, **kwargs):
+    def _fill_plot(self, X, Y, data, plot_type = None, ax = None, 
+                    label_axis = None, *args, **kwargs):
         if "density" in plot_type:
             colorbar_ylabel = r"$\rho (kg/m^2)$"
         elif "velocity" in plot_type:
-            colorbar_ylabel = r"$|\mathbf{v}| (m/s)$"
+            colorbar_ylabel = r"$v (m/s)$"
         elif "momentum" in plot_type:
             colorbar_ylabel = r"$p (N \, \cdotp s)$"
         elif "kinetic" in plot_type:
-            colorbar_ylabel = r"$Tr(\sigma_{ab}) (N / m)$"
-        fig, ax = plt.subplots()
+            colorbar_ylabel = r"$Tr(\sigma_{ab}) (N \, \cdotp m)$"
         scatter_plot = ax.scatter(X, Y, c = data, cmap = "coolwarm", s = 0.2)
-        color_bar = plt.colorbar(scatter_plot)
-        ax.set_xlabel(r"$x (m)$")
-        ax.set_ylabel(r"$y (m)$")
-        color_bar.ax.set_ylabel(colorbar_ylabel)
+        if label_axis:
+            ax.set_xlabel(r"$x/D$")
+            ax.set_ylabel(r"$y/D$")
+        color_bar = plt.colorbar(scatter_plot, ax = ax)
+        color_bar.ax.set_ylabel(colorbar_ylabel)                
+    
+
+    def plot_raveled(self, X, Y, data, plot_type = None, label_axis = None, 
+                        *args, **kwargs):
+        fig, ax = plt.subplots()
+        self._fill_plot(X, Y, data, plot_type, ax = ax, label_axis = label_axis, 
+                        *args, **kwargs)
         plt.show()
 
     

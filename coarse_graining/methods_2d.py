@@ -79,8 +79,8 @@ class CG_Calculator(Coarse_Base):
                         })   
         self.session.close()
         del self.session
-        self.densities_grid = self.update_grid(self.densities_grid, idxs, 
-                                                density_updates)
+        self.densities_grid = self.update_grid(self.densities_grid, 
+                                                density_updates,idxs)
         self.densities_grid_raveled = self.ravel_grid(self.densities_grid)        
 
 
@@ -90,7 +90,8 @@ class CG_Calculator(Coarse_Base):
         if not hasattr(self, "session"):            
             self.session = tf.InteractiveSession()
         masses = self.find_sphere_masses()
-        kinetic_updates = self.updater_kinetic_stresses(masses)
+        kinetic_updates = self.updater_kinetic_stresses(self.fn_terms, masses,
+                                                    self.vels, velocities_grid)
         init = tf.global_variables_initializer()
         self.session.run(init)
         idxs, kinetic_updates = self.session.run((self.idxs, kinetic_updates),
@@ -101,8 +102,7 @@ class CG_Calculator(Coarse_Base):
                             })
         self.session.close()
         del self.session        
-        self.kinetic_grid = self.update_grid(self.kinetic_grid, idxs, 
-                                                kinetic_updates)
+        self.kinetic_grid = self.update_grid(self.kinetic_grid, kinetic_updates)
         self.kinetic_trace = (self.kinetic_grid[:, :, 0, 0] + 
                                 self.kinetic_grid[:, :, 1, 1])
         self.kinetic_grid_raveled = self.ravel_grid(self.kinetic_trace)   
@@ -113,11 +113,13 @@ class CG_Calculator(Coarse_Base):
             self.fill_density_grid(X, Y, radii)
         if not hasattr(self, "session"):
             self.session = tf.InteractiveSession()        
-        self.velocity_updates = self.updater_velocities()
+        masses = self.find_sphere_masses()        
+        self.momenta_updates = self.updater_momenta(self.regions, masses, 
+                                                    self.vels)
         init = tf.global_variables_initializer()
         self.session.run(init)
-        idxs, velocity_updates = self.session.run(
-                        (self.idxs, self.velocity_updates),
+        idxs, momenta_updates = self.session.run(
+                        (self.idxs, self.momenta_updates),
                         feed_dict = {
                             self.pos: np.column_stack((X, Y)),
                             self.vels: np.column_stack((V_X, V_Y)),
@@ -125,14 +127,14 @@ class CG_Calculator(Coarse_Base):
                         })
         self.session.close()
         del self.session
-        self.velocities_grid = self.update_grid(self.velocities_grid, idxs, 
-                                                    velocity_updates)        
+        self.momenta_grid = self.update_grid(self.momenta_grid, momenta_updates,
+                                                idxs)        
+        self.momenta_grid_raveled = self.ravel_grid(self.momenta_grid)
+        self.velocities_grid[:, :, 0] = (self.momenta_grid[:, :, 0] 
+                                                    / self.densities_grid)
+        self.velocities_grid[:, :, 1] = (self.momenta_grid[:, :, 1] 
+                                                    / self.densities_grid)
         self.velocities_grid_raveled = self.ravel_grid(self.velocities_grid)                
-        self.momenta_grid[:, :, 0] = (self.velocities_grid[:, :, 0] * 
-                                        self.densities_grid)
-        self.momenta_grid[:, :, 1] = (self.velocities_grid[:, :, 1] * 
-                                        self.densities_grid)
-        self.momenta_grid_raveled = self.ravel_grid(self.momenta_grid)                        
 
 
     def find_indexes(self, positions, grid_centers, *args, **kwargs):
@@ -144,6 +146,10 @@ class CG_Calculator(Coarse_Base):
         [max_x, max_y]])
         """
         self.distances = self.calculate_distances(positions, grid_centers)
+        fn_term = tf.exp(-self.distances**2 / (2 * self.W**2))
+        volume_fraction = tf.reshape(tf.reduce_sum(fn_term, axis = [1, 2]),
+                                        [-1, 1, 1])        
+        self.fn_term = fn_term / (volume_fraction * self.cell_size**2)
         min_distances = tf.reduce_min(self.distances, axis = [1, 2], 
                                         keepdims = True)
         centers = tf.where(tf.equal(self.distances, min_distances))[:, 1:3] 
@@ -157,14 +163,15 @@ class CG_Calculator(Coarse_Base):
 
 
     def find_regions(self, X, Y, *args, **kwargs):
-        region_idxs, distances = self.session.run((self.idxs, self.distances), 
+        region_idxs, fn_term = self.session.run((self.idxs, self.fn_term), 
                             feed_dict = {self.pos: np.column_stack((X, Y))})
-        regions = []
+        fn_term_regions = []
         for idx, region in enumerate(region_idxs):
             min_x, max_x = region[:, 0]
             min_y, max_y = region[:, 1]
-            regions.append(distances[idx][min_y:max_y, min_x:max_x])
-        return tf.Variable(np.stack(regions, axis = 0), dtype = tf.float32)
+            fn_term_regions.append(fn_term[idx][min_y:max_y, min_x:max_x])
+        return tf.Variable(np.stack(fn_term_regions, axis = 0), 
+                                                        dtype = tf.float32)
         
 
     def find_sphere_masses(self, *args, **kwargs):
@@ -204,40 +211,39 @@ class CG_Calculator(Coarse_Base):
         self.radii = tf.placeholder(tf.float32, shape = (None, ))
 
 
-    def update_grid(self, grid, idxs, updates, *args, **kwargs):
-        for idx, region in enumerate(idxs):
-            min_x, max_x = region[:, 0]
-            min_y, max_y = region[:, 1]
-            grid[min_y:max_y, min_x:max_x] += updates[idx]            
+    def update_grid(self, grid, updates, idxs = [], *args, **kwargs):
+        if np.any(idxs):
+            for idx, region in enumerate(idxs):
+                min_x, max_x = region[:, 0]
+                min_y, max_y = region[:, 1]
+                grid[min_y:max_y, min_x:max_x] += updates[idx]
+        else:
+            for update in updates:
+                grid += update            
         return grid
 
 
-    def updater_densities(self, regions, masses, *args, **kwargs):
-        if not hasattr(self, "volume_fraction"):
-            self.volume_fraction = tf.exp(-regions**2 / (2 * self.W**2))
-        self.total_volume = tf.reduce_sum(self.volume_fraction, axis = [1, 2])
-        mass_density = masses*(1/self.cell_size**2)
-        scaled_mass = tf.reshape(mass_density / self.total_volume, [-1, 1, 1])        
-        return scaled_mass * self.volume_fraction
+    def updater_densities(self, fn_terms, masses, *args, **kwargs):
+        masses = tf.reshape(masses, [-1, 1, 1])                                
+        return masses * fn_terms
 
     
-    def updater_kinetic_stresses(self, masses, *args, **kwargs):
-        mass_density = masses*(1/self.cell_size**2)
-        scaled_mass = tf.reshape(mass_density / self.total_volume, [-1, 1, 1])
-        scaled_vx = tf.reshape(self.vels[:, 0] / self.total_volume, [-1, 1, 1])        
-        scaled_vy = tf.reshape(self.vels[:, 1] / self.total_volume, [-1, 1, 1])
-        vxy = scaled_mass * self.velocity_updates[:, :, :, 0] * scaled_vy
-        vxx = scaled_mass * self.velocity_updates[:, :, :, 0] * scaled_vx
-        vyx = scaled_mass * self.velocity_updates[:, :, :, 1] * scaled_vx
-        vyy = scaled_mass * self.velocity_updates[:, :, :, 1] * scaled_vy
+    def updater_kinetic_stresses(self, fn_term, masses, velocities, 
+                                    velocities_grid, *args, **kwargs):
+        masses = tf.reshape(masses, [-1, 1, 1])
+        prime_vx = velocities[:, 0] - velocities_grid[:, :, 0]
+        prime_vy = velocities[:, 1] - velocities_grid[:, :, 1]
+        vxx = masses*prime_vx*prime_vx*fn_term
+        vxy = masses*prime_vx*prime_vy*fn_term
+        vyx = masses*prime_vy*prime_vx*fn_term
+        vyy = masses*prime_vy*prime_vy*fn_term
         vxs = tf.stack((vxx, vxy), axis = 3)
         vys = tf.stack((vyx, vyy), axis = 3)
         return tf.stack((vxs, vys), axis = 4)
 
 
-    def updater_velocities(self, *args, **kwargs):                
-        velocity_x = tf.reshape(self.vels[:, 0]/self.total_volume, 
-                                        [-1, 1, 1])*self.volume_fraction
-        velocity_y = tf.reshape(self.vels[:, 1]/self.total_volume, 
-                                        [-1, 1, 1])*self.volume_fraction
+    def updater_momenta(self, fn_terms, masses, velocities, *args, **kwargs):                
+        masses = tf.reshape(masses, [-1, 1, 1])
+        velocity_x = tf.reshape(velocities[:, 0], [-1, 1, 1])*masses*fn_terms
+        velocity_y = tf.reshape(velocities[:, 1], [-1, 1, 1])*masses*fn_terms
         return tf.stack([velocity_x, velocity_y], axis = 3)

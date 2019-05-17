@@ -139,10 +139,10 @@ class CG_Calculator(Coarse_Base):
         self.momenta_grid = self.update_grid(self.momenta_grid, momenta_updates,
                                                 idxs)        
         self.momenta_grid_raveled = self.ravel_grid(self.momenta_grid)
-        new_densities = self.densities_grid.copy()
-        new_densities[new_densities <= np.mean(self.densities_borders)] = np.inf
-        self.velocities_grid[:, :, 0] = self.momenta_grid[:, :, 0] / new_densities
-        self.velocities_grid[:, :, 1] = self.momenta_grid[:, :, 1] / new_densities
+        self.velocities_grid[:, :, 0] = np.nan_to_num(
+                            self.momenta_grid[:, :, 0] / self.densities_grid)
+        self.velocities_grid[:, :, 1] = np.nan_to_num(
+                            self.momenta_grid[:, :, 1] / self.densities_grid)
         self.velocities_grid_raveled = self.ravel_grid(self.velocities_grid)                
 
 
@@ -155,7 +155,9 @@ class CG_Calculator(Coarse_Base):
         [max_x, max_y]])
         """
         self.distances = self.calculate_distances(positions, grid_centers)
-        fn_term = tf.exp(-self.distances**2 / (2 * self.W**2))
+        zeros = tf.zeros(shape = tf.shape(self.distances))
+        fn_term = tf.exp(-self.distances**2 / (2 * self.W**2))        
+        fn_term = tf.where(self.distances > self.epsilon*self.W, zeros, fn_term)
         volume_fraction = tf.reshape(tf.reduce_sum(fn_term, axis = [1, 2]),
                                         [-1, 1, 1])        
         self.fn_term = fn_term / (volume_fraction * self.cell_size**2)

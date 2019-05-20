@@ -21,7 +21,8 @@ class Coarse_Graining(Coarse_Base):
         extras = ["densities_grid", "densities_grid_raveled"]
         self._transfer_variables(from_class = self._calc_class, to_class = self, 
                                     extras = extras)
-
+        return np.column_stack((self.positions, self.densities_grid_raveled))
+        
 
     def kinetic_stress(self, X, Y, V_X, V_Y, radii, *args, **kwargs):
         self._calc_class.fill_kinetic_stress_grid(X, Y, V_X, V_Y, radii, *args, 
@@ -32,6 +33,7 @@ class Coarse_Graining(Coarse_Base):
                 "momenta_grid_raveled"]
         self._transfer_variables(from_class = self._calc_class, to_class = self, 
                                     extras = extras)
+        return np.column_stack((self.positions, self.kinetic_grid_raveled))
 
     
     def momenta(self, X, Y, V_X, V_Y, radii, *args, **kwargs):
@@ -42,6 +44,7 @@ class Coarse_Graining(Coarse_Base):
                     "momenta_grid_raveled"]
         self._transfer_variables(from_class = self._calc_class, to_class = self, 
                                     extras = extras)
+        return np.column_stack((self.positions, self.momenta_grid_raveled))
         
 
 class CG_Calculator(Coarse_Base):

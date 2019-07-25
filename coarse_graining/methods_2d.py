@@ -182,7 +182,11 @@ class CG_Calculator(Coarse_Base):
         fn_term_regions = []
         for idx, region in enumerate(region_idxs):
             min_x, max_x = region[:, 0]
+            min_x = max(min_x, 0)
+            max_x = min(max_x, fn_term[idx].shape[1] - 1)
             min_y, max_y = region[:, 1]
+            min_y = max(min_y, 0)
+            max_y = min(max_y, fn_term[idx].shape[0] - 1)
             fn_term_regions.append(fn_term[idx][min_y:max_y, min_x:max_x])
         return tf.Variable(np.stack(fn_term_regions, axis = 0), 
                                                         dtype = tf.float32)

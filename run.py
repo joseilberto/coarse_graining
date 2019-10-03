@@ -1,4 +1,5 @@
 from multiprocessing import cpu_count
+from tqdm import tqdm
 
 import argparse
 import logging
@@ -70,20 +71,33 @@ def file_processing(file, ratio, diameter, viscosity, angle, *args,
         "limits": limits,
     })
     times = np.unique(data[:, 2])
-    radius_in_meter = radius*10**(-3)
-    stress = []
+    radius_in_meter = radius*10**(-3)    
+    density_gradient = []
     for idx, time in enumerate(times):
         coarser = Coarse_Graining(**kwargs)
         cur_data = data[data[:, 2] == time]
         X, Y = cur_data[:, 0], cur_data[:, 1]
         V_X, V_Y = cur_data[:, 4], np.abs(cur_data[:, 5])
-        radii = cur_data[:, 6]*10**(-3)
+        radii = cur_data[:, 6]*10**(-3)                
         coarser.kinetic_stress(X, Y, V_X, V_Y, radii, **kwargs)
-        stress.append(coarser.kinetic_grid_raveled)
-    stress = np.stack(stress, axis = 0)
-    X, Y = coarser.positions[:, 0], coarser.positions[:, 1]
-    coarser.plot_raveled(X, Y, np.mean(stress, axis = 0), 
-                        plot_type = "kinetic")
+        density = coarser.densities_grid
+        gradient = np.gradient(density, coarser.cell_size)
+        gradient = np.stack((gradient[1], gradient[0]), axis = 2)        
+        if idx == 0:
+            stress = coarser.kinetic_trace
+            density = coarser.densities_grid
+            gradient = np.gradient(density, coarser.cell_size)
+            density_grad = np.stack((gradient[1], gradient[0]), axis = 2)
+            continue
+        stress += (coarser.kinetic_trace - stress) / (idx + 1)
+        density += (coarser.kinetic_trace - stress) / (idx + 1)
+        gradient = np.gradient(coarser.densities_grid, coarser.cell_size)
+        gradient = np.stack((gradient[1], gradient[0]), axis = 2)
+        density_grad += (gradient - density_grad) / (idx + 1)
+        if idx + 1 == 5:       
+            xx = coarser.xx
+            yy = coarser.yy             
+            import ipdb; ipdb.set_trace()
 
 
 def run_coarse_graining(stationary_path, parameters, *args, **kwargs):
@@ -106,6 +120,6 @@ if __name__ == "__main__":
     parameters = {
         "density": 7850,
         "epsilon": 4,
-        "n_points": 32,
+        "n_points": 16,
     }
     run_coarse_graining(stationary_path, parameters)

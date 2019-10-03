@@ -70,8 +70,10 @@ class Coarse_Base:
 
     def _fill_plot(self, X, Y, data, plot_type = None, ax = None, 
                     label_axis = None, *args, **kwargs):
-        if "density" in plot_type:
+        if "density" == plot_type:
             colorbar_ylabel = r"$\rho (kg/m^2)$"
+        elif "density_gradient" in plot_type:
+            colorbar_ylabel = r"$\nable \rho (kg / m^3)$"
         elif "velocity" in plot_type:
             colorbar_ylabel = r"$v (m/s)$"
         elif "momentum" in plot_type:

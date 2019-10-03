@@ -48,6 +48,17 @@ class Coarse_Graining(Coarse_Base):
         
 
 class CG_Calculator(Coarse_Base):
+    @staticmethod
+    def find_centers(distances, minima):
+        minima = np.ravel(minima)        
+        centers = np.empty((len(minima), 2)).astype(np.int32)        
+        for idx, dist_matrix in enumerate(distances):
+            min_idxs = np.where(dist_matrix == minima[idx])
+            assert len(min_idxs[0]) > 0
+            centers[idx] = np.array([min_idxs[0][0], min_idxs[1][0]])
+        return centers
+        
+
     def calculate_distances(self, positions, grid_centers, *args, **kwargs):
         X = tf.reshape(positions[:, 0], [-1, 1, 1])
         Y = tf.reshape(positions[:, 1], [-1, 1, 1])
@@ -91,9 +102,8 @@ class CG_Calculator(Coarse_Base):
         self.session.close()
         del self.session
         self.densities_grid = self.update_grid(self.densities_grid, 
-                                                density_updates,idxs)
-        self.densities_grid_raveled = self.ravel_grid(self.densities_grid)        
-
+                                                        density_updates, idxs)
+        self.densities_grid_raveled = self.ravel_grid(self.densities_grid)         
 
     def fill_kinetic_stress_grid(self, X, Y, V_X, V_Y, radii, *args, **kwargs):       
         if not hasattr(self, "velocity_updates"):
@@ -165,8 +175,10 @@ class CG_Calculator(Coarse_Base):
                                         [-1, 1, 1])        
         self.fn_term = fn_term / (volume_fraction * self.cell_size**2)
         min_distances = tf.reduce_min(self.distances, axis = [1, 2], 
-                                        keepdims = True)
-        centers = tf.where(tf.equal(self.distances, min_distances))[:, 1:3] 
+                                        keepdims = True)         
+        centers = tf.py_func(self.find_centers, [self.distances, min_distances], 
+                                            [tf.int32])        
+        centers = tf.convert_to_tensor(centers[0], dtype = tf.int32) 
         xs = centers[:, 1]
         ys = centers[:, 0]
         self.centers = tf.stack([xs, ys], axis = 1)

@@ -18,7 +18,7 @@ class Coarse_Graining(Coarse_Base):
 
     def densities(self, X, Y, radii, *args, **kwargs):
         self._calc_class.fill_density_grid(X, Y, radii, *args, **kwargs)
-        extras = ["densities_grid", "densities_grid_raveled"]
+        extras = ["densities_grid", "densities_grid_raveled", "dgradient_grid"]
         self._transfer_variables(from_class = self._calc_class, to_class = self, 
                                     extras = extras)
         return np.column_stack((self.positions, self.densities_grid_raveled))
@@ -27,9 +27,9 @@ class Coarse_Graining(Coarse_Base):
     def kinetic_stress(self, X, Y, V_X, V_Y, radii, *args, **kwargs):
         self._calc_class.fill_kinetic_stress_grid(X, Y, V_X, V_Y, radii, *args, 
                                                     **kwargs)
-        extras = ["densities_grid", "densities_grid_raveled", "kinetic_grid", 
-                "kinetic_trace", "kinetic_grid_raveled", "velocities_grid", 
-                "velocities_grid_raveled", "momenta_grid", 
+        extras = ["densities_grid", "densities_grid_raveled", "dgradient_grid",
+                "kinetic_grid", "kinetic_trace", "kinetic_grid_raveled", 
+                "velocities_grid", "velocities_grid_raveled", "momenta_grid", 
                 "momenta_grid_raveled"]
         self._transfer_variables(from_class = self._calc_class, to_class = self, 
                                     extras = extras)
@@ -39,9 +39,9 @@ class Coarse_Graining(Coarse_Base):
     def momenta(self, X, Y, V_X, V_Y, radii, *args, **kwargs):
         self._calc_class.fill_momenta_grid(X, Y, V_X, V_Y, radii, *args, 
                                                     **kwargs)
-        extras = ["densities_grid", "densities_grid_raveled", "velocities_grid", 
-                    "velocities_grid_raveled", "momenta_grid", 
-                    "momenta_grid_raveled"]
+        extras = ["densities_grid", "densities_grid_raveled", "dgradient_grid", 
+                    "velocities_grid", "velocities_grid_raveled", 
+                    "momenta_grid", "momenta_grid_raveled"]
         self._transfer_variables(from_class = self._calc_class, to_class = self, 
                                     extras = extras)
         return np.column_stack((self.positions, self.momenta_grid_raveled))
@@ -57,6 +57,16 @@ class CG_Calculator(Coarse_Base):
             assert len(min_idxs[0]) > 0
             centers[idx] = np.array([min_idxs[0][0], min_idxs[1][0]])
         return centers
+
+    
+    @staticmethod
+    def gradient(distances, spacing):
+        gradients = np.zeros((*distances.shape, 2), dtype = np.float32)
+        for idx, dist_matrix in enumerate(distances):
+            [dy, dx] = np.gradient(dist_matrix, spacing)
+            gradients[idx, :, :, 0] = dx
+            gradients[idx, :, :, 1] = dy
+        return gradients
         
 
     def calculate_distances(self, positions, grid_centers, *args, **kwargs):
@@ -91,19 +101,35 @@ class CG_Calculator(Coarse_Base):
         masses = self.find_sphere_masses(self.density, self.radii)
         density_updates = self.updater_densities(self.regions, masses)
         densities_borders = self.densities_at_borders(density_updates)
+        dgradient_updates = self.fill_density_gradient_grid(density_updates)
         init = tf.global_variables_initializer()
         self.session.run(init)        
-        idxs, density_updates, self.densities_borders = self.session.run(
-                        (self.idxs, density_updates, densities_borders),
+        idxs, density_updates, dgradient_updates, self.densities_borders = (
+                        self.session.run((self.idxs, density_updates, 
+                        dgradient_updates, densities_borders),
                         feed_dict = {
                             self.pos: np.column_stack((X, Y)),
                             self.radii: radii,
-                        })   
+                        }))   
         self.session.close()
         del self.session
         self.densities_grid = self.update_grid(self.densities_grid, 
                                                         density_updates, idxs)
-        self.densities_grid_raveled = self.ravel_grid(self.densities_grid)         
+        self.dgradient_grid = self.update_grid(self.dgradient_grid, 
+                                                    dgradient_updates, idxs)
+        self.densities_grid_raveled = self.ravel_grid(self.densities_grid)
+        self.dgradient_grid_raveled = self.ravel_grid(self.dgradient_grid)
+    
+
+    def fill_density_gradient_grid(self, density_updates, *args, **kwargs):
+        gradients = tf.py_func(self.gradient, 
+                        [self.distances_regions, self.cell_size], [tf.float32])
+        gradients = tf.convert_to_tensor(gradients[0], dtype = tf.float32)        
+        density_term = - density_updates * self.distances_regions / self.W**2
+        Delta_X = density_term * gradients[:, :, :, 0]
+        Delta_Y = density_term * gradients[:, :, :, 1]
+        return tf.stack([Delta_X, Delta_Y], axis = 3)
+
 
     def fill_kinetic_stress_grid(self, X, Y, V_X, V_Y, radii, *args, **kwargs):       
         if not hasattr(self, "velocity_updates"):
@@ -189,16 +215,18 @@ class CG_Calculator(Coarse_Base):
 
 
     def find_regions(self, X, Y, *args, **kwargs):
-        region_idxs, fn_term = self.session.run((self.idxs, self.fn_term), 
+        region_idxs, fn_term, distances = self.session.run((self.idxs, 
+                            self.fn_term, self.distances), 
                             feed_dict = {self.pos: np.column_stack((X, Y))})
         fn_term_regions = []
-        len_diff = region_idxs.shape[0] - fn_term.shape[0]
-        if len_diff != 0:
-            region_idxs = region_idxs[:-len_diff]
+        distances_regions = []
         for idx, region in enumerate(region_idxs):
-            min_x, max_x = region[:, 0]            
+            min_x, max_x = region[:, 0]
             min_y, max_y = region[:, 1]
             fn_term_regions.append(fn_term[idx][min_y:max_y, min_x:max_x])
+            distances_regions.append(distances[idx][min_y:max_y, min_x:max_x])
+        self.distances_regions = tf.Variable(np.stack(
+                            distances_regions, axis = 0), dtype = tf.float32)
         return tf.Variable(np.stack(fn_term_regions, axis = 0), 
                                                         dtype = tf.float32)
         
@@ -232,6 +260,7 @@ class CG_Calculator(Coarse_Base):
         self.xx, self.yy = np.meshgrid(xs, ys)
         self.positions = self.ravel_meshes(self.xx, self.yy)        
         self.densities_grid = np.zeros(self.xx.shape)
+        self.dgradient_grid = np.zeros(self.xx.shape + (2,))
         self.velocities_grid = np.zeros(self.xx.shape + (2,))
         self.momenta_grid = np.zeros(self.xx.shape + (2,))
         self.kinetic_grid = np.zeros(self.xx.shape + (2, 2))

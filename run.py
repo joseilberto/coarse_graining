@@ -5,11 +5,15 @@ import argparse
 import logging
 import matplotlib.pyplot as plt
 import os
+import tensorflow as tf
 
 from methods_for_run import *
 from load.methods_2d import *
 from coarse_graining.methods_2d import Coarse_Graining
 
+tf.logging.set_verbosity(tf.logging.ERROR)
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 def set_args():
     """
@@ -56,6 +60,8 @@ def process_args(args):
 @process_for_file
 def file_processing(file, ratio, diameter, viscosity, angle, *args,
                           **kwargs):
+    if viscosity == 0:
+        return
     sys_type = kwargs.get("sys_type", "monodisperse")
     if "monodisperse" in sys_type:
         radius = diameter / 2
@@ -73,31 +79,29 @@ def file_processing(file, ratio, diameter, viscosity, angle, *args,
     times = np.unique(data[:, 2])
     radius_in_meter = radius*10**(-3)    
     density_gradient = []
-    for idx, time in enumerate(times):
+    for idx, time in tqdm(enumerate(times), total = len(times) - 1, desc = "Running coarse graining: "):
         coarser = Coarse_Graining(**kwargs)
         cur_data = data[data[:, 2] == time]
         X, Y = cur_data[:, 0], cur_data[:, 1]
         V_X, V_Y = cur_data[:, 4], np.abs(cur_data[:, 5])
         radii = cur_data[:, 6]*10**(-3)                
-        coarser.kinetic_stress(X, Y, V_X, V_Y, radii, **kwargs)
-        density = coarser.densities_grid
-        gradient = np.gradient(density, coarser.cell_size)
-        gradient = np.stack((gradient[1], gradient[0]), axis = 2)        
+        coarser.densities(X, Y, radii, **kwargs)                
         if idx == 0:
-            stress = coarser.kinetic_trace
+            # stress = coarser.kinetic_trace
             density = coarser.densities_grid
-            gradient = np.gradient(density, coarser.cell_size)
-            density_grad = np.stack((gradient[1], gradient[0]), axis = 2)
+            gradient = coarser.dgradient_grid            
             continue
-        stress += (coarser.kinetic_trace - stress) / (idx + 1)
-        density += (coarser.kinetic_trace - stress) / (idx + 1)
-        gradient = np.gradient(coarser.densities_grid, coarser.cell_size)
-        gradient = np.stack((gradient[1], gradient[0]), axis = 2)
-        density_grad += (gradient - density_grad) / (idx + 1)
-        if idx + 1 == 5:       
-            xx = coarser.xx
-            yy = coarser.yy             
-            import ipdb; ipdb.set_trace()
+        # stress += (coarser.kinetic_trace - stress) / (idx + 1)
+        density += (coarser.densities_grid - density) / (idx + 1)
+        gradient += (coarser.dgradient_grid - gradient) / (idx + 1)
+    xx = coarser.xx
+    yy = coarser.yy
+    sqr_grad = np.sqrt(gradient[:, :, 0]**2 + gradient[:, :, 1]**2)
+    fig, ax = plt.subplots(ncols = 2)             
+    ax[0].pcolor(xx, yy, density, cmap = "coolwarm")
+    ax[1].pcolor(xx, yy, sqr_grad, cmap = "coolwarm")
+    plt.show()                        
+    import ipdb; ipdb.set_trace()
 
 
 def run_coarse_graining(stationary_path, parameters, *args, **kwargs):
@@ -120,6 +124,6 @@ if __name__ == "__main__":
     parameters = {
         "density": 7850,
         "epsilon": 4,
-        "n_points": 16,
+        "n_points": 32,
     }
     run_coarse_graining(stationary_path, parameters)

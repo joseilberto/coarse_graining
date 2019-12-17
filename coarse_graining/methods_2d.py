@@ -18,7 +18,8 @@ class Coarse_Graining(Coarse_Base):
 
     def densities(self, X, Y, radii, *args, **kwargs):
         self._calc_class.fill_density_grid(X, Y, radii, *args, **kwargs)
-        extras = ["densities_grid", "densities_grid_raveled", "dgradient_grid"]
+        extras = ["densities_grid", "packing_fraction", "vel_idxs",
+                    "densities_grid_raveled", "dgradient_grid"]
         self._transfer_variables(from_class = self._calc_class, to_class = self, 
                                     extras = extras)
         return np.column_stack((self.positions, self.densities_grid_raveled))
@@ -27,7 +28,8 @@ class Coarse_Graining(Coarse_Base):
     def kinetic_stress(self, X, Y, V_X, V_Y, radii, *args, **kwargs):
         self._calc_class.fill_kinetic_stress_grid(X, Y, V_X, V_Y, radii, *args, 
                                                     **kwargs)
-        extras = ["densities_grid", "densities_grid_raveled", "dgradient_grid",
+        extras = ["densities_grid", "packing_fraction", "vel_idxs",
+                "densities_grid_raveled", "dgradient_grid",
                 "kinetic_grid", "kinetic_trace", "kinetic_grid_raveled", 
                 "velocities_grid", "velocities_grid_raveled", "momenta_grid", 
                 "momenta_grid_raveled"]
@@ -39,7 +41,8 @@ class Coarse_Graining(Coarse_Base):
     def momenta(self, X, Y, V_X, V_Y, radii, *args, **kwargs):
         self._calc_class.fill_momenta_grid(X, Y, V_X, V_Y, radii, *args, 
                                                     **kwargs)
-        extras = ["densities_grid", "densities_grid_raveled", "dgradient_grid", 
+        extras = ["densities_grid", "packing_fraction", "vel_idxs",
+                    "densities_grid_raveled", "dgradient_grid", 
                     "velocities_grid", "velocities_grid_raveled", 
                     "momenta_grid", "momenta_grid_raveled"]
         self._transfer_variables(from_class = self._calc_class, to_class = self, 
@@ -67,6 +70,17 @@ class CG_Calculator(Coarse_Base):
             gradients[idx, :, :, 0] = dx
             gradients[idx, :, :, 1] = dy
         return gradients
+
+    
+    @staticmethod
+    def heavyside_correction(fn_term):
+        nonzero = fn_term[fn_term != 0]
+        most_likely = np.median(nonzero)
+        idxs = np.where(fn_term >= most_likely / 10)
+        fn_term[idxs] = most_likely
+        idxs = np.where(fn_term < most_likely)
+        fn_term[idxs] = 0
+        return fn_term
         
 
     def calculate_distances(self, positions, grid_centers, *args, **kwargs):
@@ -95,28 +109,31 @@ class CG_Calculator(Coarse_Base):
         if not hasattr(self, "session"):
             self.session = tf.InteractiveSession()
         if not hasattr(self, "idxs"):
-            self.idxs = self.find_indexes(self.pos, [self.xx, self.yy])
+            self.idxs = self.find_indexes(self.pos, [self.xx, self.yy], radii)
         if not hasattr(self, "regions"):           
             self.regions = self.find_regions(X, Y)
         masses = self.find_sphere_masses(self.density, self.radii)
+        packing_updates = self.updater_packing(self.regions)
         density_updates = self.updater_densities(self.regions, masses)
         densities_borders = self.densities_at_borders(density_updates)
         dgradient_updates = self.fill_density_gradient_grid(density_updates)
         init = tf.global_variables_initializer()
         self.session.run(init)        
-        idxs, density_updates, dgradient_updates, self.densities_borders = (
+        idxs, density_updates, dgradient_updates, self.densities_borders, packing_updates = (
                         self.session.run((self.idxs, density_updates, 
-                        dgradient_updates, densities_borders),
+                        dgradient_updates, densities_borders, packing_updates),
                         feed_dict = {
                             self.pos: np.column_stack((X, Y)),
                             self.radii: radii,
                         }))   
         self.session.close()
         del self.session
+        self.packing_fraction = self.update_grid(self.packing_fraction, 
+                                                    packing_updates, idxs)
         self.densities_grid = self.update_grid(self.densities_grid, 
                                                         density_updates, idxs)
         self.dgradient_grid = self.update_grid(self.dgradient_grid, 
-                                                    dgradient_updates, idxs)
+                                                    dgradient_updates, idxs)        
         self.densities_grid_raveled = self.ravel_grid(self.densities_grid)
         self.dgradient_grid_raveled = self.ravel_grid(self.dgradient_grid)
     
@@ -176,7 +193,7 @@ class CG_Calculator(Coarse_Base):
         self.session.close()
         del self.session
         self.momenta_grid = self.update_grid(self.momenta_grid, momenta_updates,
-                                                idxs)        
+                                                idxs, get_idxs = True)        
         self.momenta_grid_raveled = self.ravel_grid(self.momenta_grid)
         self.velocities_grid[:, :, 0] = np.nan_to_num(
                             self.momenta_grid[:, :, 0] / self.densities_grid)
@@ -185,7 +202,7 @@ class CG_Calculator(Coarse_Base):
         self.velocities_grid_raveled = self.ravel_grid(self.velocities_grid)                
 
 
-    def find_indexes(self, positions, grid_centers, *args, **kwargs):
+    def find_indexes(self, positions, grid_centers, radii, *args, **kwargs):
         """
         Find the minima and maxima for the batch of particles presented. 
         When applying tf.where, it returns a tensor with shape 
@@ -195,11 +212,25 @@ class CG_Calculator(Coarse_Base):
         """
         self.distances = self.calculate_distances(positions, grid_centers)
         zeros = tf.zeros(shape = tf.shape(self.distances))
-        fn_term = tf.exp(-self.distances**2 / (2 * self.W**2))        
-        fn_term = tf.where(self.distances > self.epsilon*self.W, zeros, fn_term)
-        volume_fraction = tf.reshape(tf.reduce_sum(fn_term, axis = [1, 2]),
+        
+        if "gaussian" in self.function:
+            fn_term = tf.exp(-self.distances**2 / (2 * self.W**2))        
+            fn_term = tf.where(self.distances > self.epsilon*self.W, zeros, 
+                                fn_term)
+            volume_fraction = tf.reshape(tf.reduce_sum(fn_term, axis = [1, 2]),
+                                        [-1, 1, 1])
+            self.fn_term = fn_term / (volume_fraction * self.cell_size**2)
+        elif "heavyside" in self.function:
+            radii = tf.convert_to_tensor(radii, dtype = tf.float32)   
+            radii = tf.reshape(radii, [-1, 1, 1])
+            ones = tf.ones(shape = tf.shape(self.distances))
+            fn_term = tf.where(self.distances > radii, zeros, ones)
+            volume_fraction = tf.reshape(tf.reduce_sum(fn_term, axis = [1, 2]),
                                         [-1, 1, 1])        
-        self.fn_term = fn_term / (volume_fraction * self.cell_size**2)
+            self.fn_term = tf.py_func(self.heavyside_correction, 
+                            [fn_term / (volume_fraction * self.cell_size**2)],
+                            tf.float32)
+        self.volume_fraction = volume_fraction
         min_distances = tf.reduce_min(self.distances, axis = [1, 2], 
                                         keepdims = True)         
         centers = tf.py_func(self.find_centers, [self.distances, min_distances], 
@@ -258,10 +289,12 @@ class CG_Calculator(Coarse_Base):
         xs = np.arange(*limits[:2], self.cell_size)
         ys = np.arange(*limits[2:], self.cell_size)
         self.xx, self.yy = np.meshgrid(xs, ys)
-        self.positions = self.ravel_meshes(self.xx, self.yy)        
+        self.positions = self.ravel_meshes(self.xx, self.yy)
+        self.packing_fraction = np.zeros(self.xx.shape)
         self.densities_grid = np.zeros(self.xx.shape)
         self.dgradient_grid = np.zeros(self.xx.shape + (2,))
         self.velocities_grid = np.zeros(self.xx.shape + (2,))
+        self.vel_idxs = np.zeros(self.xx.shape + (2,))        
         self.momenta_grid = np.zeros(self.xx.shape + (2,))
         self.kinetic_grid = np.zeros(self.xx.shape + (2, 2))
         self.pos = tf.placeholder(tf.float32, shape = (None, 2))
@@ -269,16 +302,38 @@ class CG_Calculator(Coarse_Base):
         self.radii = tf.placeholder(tf.float32, shape = (None, ))
 
 
-    def update_grid(self, grid, updates, idxs = [], *args, **kwargs):
+    def update_grid(self, grid, updates, idxs = [], get_idxs = None, *args, **kwargs):
         if np.any(idxs):
-            for idx, region in enumerate(idxs):
-                min_x, max_x = region[:, 0]
-                min_y, max_y = region[:, 1]
-                grid[min_y:max_y, min_x:max_x] += updates[idx]
+            if "gaussian" in self.function:
+                for idx, region in enumerate(idxs):
+                    min_x, max_x = region[:, 0]
+                    min_y, max_y = region[:, 1]
+                    grid[min_y:max_y, min_x:max_x] += updates[idx]
+            elif "heavyside" in self.function:                                          
+                for idx, region in enumerate(idxs):
+                    min_x, max_x = region[:, 0]
+                    min_y, max_y = region[:, 1]
+                    all_idxs = np.where(grid[min_y:max_y, min_x:max_x] == 0)                                         
+                    y_idxs = all_idxs[0] + min_y
+                    x_idxs = all_idxs[1] + min_x
+                    if len(all_idxs) == 3:
+                        if get_idxs:
+                            self.vel_idxs[y_idxs, x_idxs, all_idxs[-1]] = 1
+                        grid[y_idxs, x_idxs, all_idxs[-1]] += updates[idx, 
+                                        all_idxs[0], all_idxs[1], all_idxs[-1]]                          
+                        continue
+                    grid[y_idxs, x_idxs] += updates[idx, all_idxs[0], all_idxs[1]]  
         else:
             for update in updates:
                 grid += update            
         return grid
+
+
+    def updater_packing(self, fn_terms):
+        packing = fn_terms * self.volume_fraction * self.cell_size**2
+        zeros = tf.zeros(shape = tf.shape(packing))
+        ones = tf.ones(shape = tf.shape(packing))
+        return tf.where(packing > 0, ones, zeros)
 
 
     def updater_densities(self, fn_terms, masses, *args, **kwargs):

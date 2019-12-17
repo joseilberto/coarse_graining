@@ -10,7 +10,7 @@ def make_vel_batches(data, *args, **kwargs):
     time_col = kwargs.get("time_col", 2)
     idx_col = kwargs.get("idx_col", 3)
     n_procs = kwargs.get("n_procs", cpu_count())
-    aliasing = kwargs.get("aliasing", 2)
+    aliasing = kwargs.get("aliasing", 1)
     times = np.unique(data[:, time_col])
     n_times = len(times)
     batch_size = round(n_times / n_procs)
@@ -35,17 +35,18 @@ def get_velocities_and_where(batch, times_in_batch, curs, prevs, idx,
     intersects = np.isin(curs[:, 3], prevs[:, 3])
     intersect = curs[intersects]
     for p_idx in intersect[:, 3]:
-        min_idx = (idx - (aliasing - 1)
-                   if idx - (aliasing - 1) > 0 else 0)
-        max_idx = (idx + 1 + aliasing
-                   if idx + 1 + aliasing < size_times else size_times)
+        min_idx = max(idx - (aliasing - 1), 0)
+        max_idx = min(idx + 1 + aliasing, size_times)        
         avg_idxs = ((batch[:, 2] >= times_in_batch[min_idx]) &
                     (batch[:, 2] <= times_in_batch[max_idx]) &
-                    (batch[:, 3] == p_idx))
+                    (batch[:, 3] == p_idx))        
         avg_data = batch[avg_idxs]
-        x, y, times = avg_data[:, 0], avg_data[:, 1], avg_data[:, 2]
-        v_x = np.mean(np.diff(x)) / np.sum(np.diff(times))
-        v_y = np.mean(np.diff(y)) / np.sum(np.diff(times))
+        if avg_data.shape[0] > 1:        
+            x, y, times = avg_data[:, 0], avg_data[:, 1], avg_data[:, 2]
+            v_x = np.mean(np.diff(x)) / np.mean(np.diff(times))
+            v_y = np.mean(np.diff(y)) / np.mean(np.diff(times))
+        else:
+            v_x, v_y = 0, 0
         idx_cur_data = np.where(curs[:, 3] == p_idx)[0]
         yield v_x, v_y, idx_cur_data
 
@@ -65,6 +66,9 @@ def calculate_vel_batch(*args):
         for v_x, v_y, idx_cur_data in velocities_generator:
             cur_data[idx_cur_data, [4, 5]] = v_x, v_y
         full_data.append(cur_data)
+        end_pat = "\r" if idx < len(times_in_batch) - 1 else "\n"
+        print("Processing {}/{}".format(idx + 1, len(times_in_batch)), 
+                        end = end_pat)
     if not full_data:
         return
     return np.vstack(full_data)

@@ -48,8 +48,11 @@ def files_from_pattern(files, pattern):
 def find_stationarity(file, stationary_reference, *args, **kwargs):
     fps = re.search(r"fps=(-?\d+)_", stationary_reference)
     if not fps:
-        return
-    fps = int(fps.group(1))
+        fps = re.search(r"fps=(.*?)_", stationary_reference)
+        if not fps:
+            return
+    fps = fps.group(1)
+    fps = int(fps) if float(fps) > 1 else float(fps)
     data = np.load(file)
     data[:, 2] = data[:, 2] / fps
     reference = pd.read_csv(stationary_reference)

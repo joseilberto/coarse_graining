@@ -101,13 +101,13 @@ def file_processing(file, ratio, diameter, viscosity, angle, *args,
     ax[0].pcolor(xx, yy, density, cmap = "coolwarm")
     ax[1].pcolor(xx, yy, sqr_grad, cmap = "coolwarm")
     plt.show()                        
-    import ipdb; ipdb.set_trace()
+    
 
 
 def run_coarse_graining(stationary_path, parameters, *args, **kwargs):
     files, files_dict, kwargs = process_args()
     kwargs.update({
-            "aliasing": 2,
+            "aliasing": 0,
             "x_col": 0,
             "y_col": 1,
             "time_col": 2,
@@ -115,8 +115,8 @@ def run_coarse_graining(stationary_path, parameters, *args, **kwargs):
             "n_procs": cpu_count(),
          })
     stationary_files = get_stationary_files(files_dict, stationary_path,
-                                            redo = False, *args, **kwargs)
-    file_processing(stationary_files, *args, **parameters)
+                                            redo = True, *args, **kwargs)
+    # file_processing(stationary_files, *args, **parameters)
 
 
 if __name__ == "__main__":

@@ -9,12 +9,14 @@ def make_vel_batches(data, *args, **kwargs):
     y_col = kwargs.get("x_col", 1)
     time_col = kwargs.get("time_col", 2)
     idx_col = kwargs.get("idx_col", 3)
-    n_procs = kwargs.get("n_procs", cpu_count())
+    n_procs = kwargs.get("n_procs", cpu_count() * 8)
     aliasing = kwargs.get("aliasing", 1)
     times = np.unique(data[:, time_col])
     n_times = len(times)
-    batch_size = round(n_times / n_procs)
+    batch_size = int(n_times / n_procs)
     times_batches = times[::batch_size]
+    times_batches[-1] = (times_batches[-1] if times_batches[-1] == times[-1] 
+                                            else times[-1])
     batches = []
     time_steps = []
     for idx, time in enumerate(times_batches[1:]):
@@ -36,7 +38,7 @@ def get_velocities_and_where(batch, times_in_batch, curs, prevs, idx,
     intersect = curs[intersects]
     for p_idx in intersect[:, 3]:
         min_idx = max(idx - (aliasing - 1), 0)
-        max_idx = min(idx + 1 + aliasing, size_times)        
+        max_idx = min(idx + aliasing, size_times)        
         avg_idxs = ((batch[:, 2] >= times_in_batch[min_idx]) &
                     (batch[:, 2] <= times_in_batch[max_idx]) &
                     (batch[:, 3] == p_idx))        
@@ -55,7 +57,7 @@ def calculate_vel_batch(*args):
     batch, times_in_batch, aliasing = args[0]
     full_data = []
     size_times = len(times_in_batch) - 1
-    for idx, time in enumerate(times_in_batch[1:]):
+    for idx, time in enumerate(times_in_batch[1:]):      
         prevs = batch[batch[:, 2] == times_in_batch[idx]]
         curs = batch[batch[:, 2] == time]
         cur_data = np.zeros((curs.shape[0], curs.shape[1] + 2))

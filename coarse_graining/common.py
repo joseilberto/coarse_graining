@@ -107,7 +107,7 @@ class Coarse_Base:
             colorbar_ylabel = r"$p (N \, \cdotp s)$"
         elif "kinetic" in plot_type:
             colorbar_ylabel = r"$Tr(\sigma_{ab}) (N / m)$"
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots()        
         pcolor = ax.pcolor(xs, ys, grid, cmap = "coolwarm")
         ax.set_xlabel(r"$x (m)$")
         ax.set_ylabel(r"$y (m)$")

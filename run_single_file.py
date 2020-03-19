@@ -25,7 +25,8 @@ def calculate_velocities(file_name, aliasing = 1, n_procs = 8):
 
 def do_coarse_graining(base_folder, file_name, radius, skip = 0, n_times = 10, 
                         *args, **kwargs):
-    data = np.load(base_folder + file_name)    
+    data = np.load(base_folder + file_name)
+    data[:, [0, 1, 4, 5]] = data[:, [0, 1, 4, 5]]*10**(-2)    
     data = radius_column_to_data(data, radius)
     min_x, max_x = data[:, 0].min(), data[:, 0].max()
     min_y, max_y = data[:, 1].min(), data[:, 1].max()
@@ -38,7 +39,7 @@ def do_coarse_graining(base_folder, file_name, radius, skip = 0, n_times = 10,
     times = times[::skip] if not n_times else times[:n_times]
     base_file_name = file_name.split('_spots')[0]
     os.makedirs(base_folder + 'cg_data/' + base_file_name + '/', exist_ok = True)
-    base_pattern = base_folder + 'cg_data/' + base_file_name + '{}/{}.npy'
+    base_pattern = base_folder + 'cg_data/' + base_file_name + '/{}/{}.npy'
     grid_pattern = base_folder + 'cg_data/' + base_file_name + '{}.npy'
     output_pattern = {
                 "density": base_pattern.format('density', "{}").format,
@@ -46,6 +47,8 @@ def do_coarse_graining(base_folder, file_name, radius, skip = 0, n_times = 10,
                 "px": base_pattern.format('px', "{}").format,
                 "py": base_pattern.format('py', "{}").format,                
             }
+    for key, value in output_pattern.items():
+        os.makedirs(value('').replace('.npy', ''), exist_ok = True)
     for idx, time in tqdm(enumerate(times), total = len(times) - 1, 
                                         desc = "Running Coarse Graining"):
         coarser = Coarse_Graining(**kwargs)
@@ -72,7 +75,7 @@ if __name__ == "__main__":
                 "sys_type": "monodisperse",
                 "function": "heavyside",
                 }
-    redo_velocities, aliasing, n_procs = True, 4, 64
+    redo_velocities, aliasing, n_procs = False, 4, 64
     viscosity = 12000
     fps = 2
     base_folder = "./data/mu={}cSt/".format(viscosity)

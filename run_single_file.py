@@ -40,7 +40,7 @@ def do_coarse_graining(base_folder, file_name, radius, skip = 0, n_times = 10,
     base_file_name = file_name.split('_spots')[0]
     os.makedirs(base_folder + 'cg_data/' + base_file_name + '/', exist_ok = True)
     base_pattern = base_folder + 'cg_data/' + base_file_name + '/{}/{}.npy'
-    grid_pattern = base_folder + 'cg_data/' + base_file_name + '{}.npy'
+    grid_pattern = base_folder + 'cg_data/' + base_file_name + '/{}.npy'
     output_pattern = {
                 "density": base_pattern.format('density', "{}").format,
                 "packing": base_pattern.format('packing', "{}").format,
@@ -84,4 +84,4 @@ if __name__ == "__main__":
     if redo_velocities:
         calculate_velocities(base_folder + file_name, aliasing, n_procs)    
     do_coarse_graining(base_folder, file_name, radius, skip = 1, 
-                        n_times = None, **c_params)
+                        n_times = 2000, **c_params)

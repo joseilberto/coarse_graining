@@ -54,7 +54,7 @@ def do_coarse_graining(base_folder, file_name, radius, skip = 0, n_times = 10,
         coarser = Coarse_Graining(**kwargs)
         cur_data = data[data[:, 2] == time]        
         X, Y = cur_data[:, 0], cur_data[:, 1]
-        V_X, V_Y = cur_data[:, 4], np.abs(cur_data[:, 5])
+        V_X, V_Y = cur_data[:, 4], cur_data[:, 5]
         radii = cur_data[:, 6]
         coarser.momenta(X, Y, V_X, V_Y, radii, **kwargs)
         if idx == 0:
@@ -84,4 +84,4 @@ if __name__ == "__main__":
     if redo_velocities:
         calculate_velocities(base_folder + file_name, aliasing, n_procs)    
     do_coarse_graining(base_folder, file_name, radius, skip = 1, 
-                        n_times = 2000, **c_params)
+                        n_times = 200, **c_params)

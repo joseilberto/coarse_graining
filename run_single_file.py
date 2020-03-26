@@ -23,8 +23,8 @@ def calculate_velocities(file_name, aliasing = 1, n_procs = 8):
     return data
 
 
-def do_coarse_graining(base_folder, file_name, radius, skip = 0, n_times = 10, 
-                        *args, **kwargs):
+def do_coarse_graining(base_folder, file_name, radius, mean_velocities = [],
+                        skip = 0, n_times = 10, *args, **kwargs):
     data = np.load(base_folder + file_name)
     data[:, [0, 1, 4, 5]] = data[:, [0, 1, 4, 5]]*10**(-2)    
     data = radius_column_to_data(data, radius)
@@ -45,7 +45,9 @@ def do_coarse_graining(base_folder, file_name, radius, skip = 0, n_times = 10,
                 "density": base_pattern.format('density', "{}").format,
                 "packing": base_pattern.format('packing', "{}").format,
                 "px": base_pattern.format('px', "{}").format,
-                "py": base_pattern.format('py', "{}").format,                
+                "py": base_pattern.format('py', "{}").format,
+                "fluc_vx": base_pattern.format('fluc_vx', "{}").format,
+                "fluc_vy": base_pattern.format('fluc_vy', "{}").format,
             }
     for key, value in output_pattern.items():
         os.makedirs(value('').replace('.npy', ''), exist_ok = True)
@@ -56,14 +58,16 @@ def do_coarse_graining(base_folder, file_name, radius, skip = 0, n_times = 10,
         X, Y = cur_data[:, 0], cur_data[:, 1]
         V_X, V_Y = cur_data[:, 4], cur_data[:, 5]
         radii = cur_data[:, 6]
-        coarser.momenta(X, Y, V_X, V_Y, radii, **kwargs)
+        coarser.velocities(X, Y, V_X, V_Y, radii, mean_velocities, **kwargs)
         if idx == 0:
             np.save(grid_pattern.format('xx'), coarser.xx)
             np.save(grid_pattern.format('yy'), coarser.yy)
-        np.save(output_pattern["density"](idx), coarser.densities_grid)
-        np.save(output_pattern["packing"](idx), coarser.packing_fraction)
-        np.save(output_pattern["px"](idx), coarser.momenta_grid[:, :, 0])
-        np.save(output_pattern["py"](idx), coarser.momenta_grid[:, :, 1])
+        # np.save(output_pattern["density"](idx), coarser.densities_grid)
+        # np.save(output_pattern["packing"](idx), coarser.packing_fraction)
+        # np.save(output_pattern["px"](idx), coarser.momenta_grid[:, :, 0])
+        # np.save(output_pattern["py"](idx), coarser.momenta_grid[:, :, 1])
+        np.save(output_pattern["fluc_vx"](idx), coarser.fluctuating_velocities_grid[:, :, 0])
+        np.save(output_pattern["fluc_vy"](idx), coarser.fluctuating_velocities_grid[:, :, 1])
 
     
     
@@ -79,9 +83,13 @@ if __name__ == "__main__":
     viscosity = 12000
     fps = 2
     base_folder = "./data/mu={}cSt/".format(viscosity)
-    file_name = "video0001_spots_d=0.2cm_fps={}.npy".format(fps)
+    video_number = "video0001"
+    file_name = "{}_spots_d=0.2cm_fps={}.npy".format(video_number, fps)
+    mean_vel_file = base_folder + "{}_mean_v_field.npy".format(video_number)
+    mean_velocities = (np.load(mean_vel_file) if os.path.isfile(mean_vel_file) 
+                                                else [])
     radius = 1*10**(-3)    
     if redo_velocities:
         calculate_velocities(base_folder + file_name, aliasing, n_procs)    
-    do_coarse_graining(base_folder, file_name, radius, skip = 1, 
-                        n_times = 200, **c_params)
+    do_coarse_graining(base_folder, file_name, radius, mean_velocities, skip = 1, 
+                        n_times = 1200, **c_params)

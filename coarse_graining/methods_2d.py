@@ -48,6 +48,19 @@ class Coarse_Graining(Coarse_Base):
         self._transfer_variables(from_class = self._calc_class, to_class = self, 
                                     extras = extras)
         return np.column_stack((self.positions, self.momenta_grid_raveled))
+
+    
+    def velocities(self, X, Y, V_X, V_Y, radii, mean_field = [], *args, **kwargs):
+        self._calc_class.fill_velocity_fluctuation_grid(X, Y, V_X, V_Y, radii, 
+                                                    mean_field, *args, **kwargs)
+        extras = ["densities_grid", "packing_fraction", "vel_idxs",
+                "densities_grid_raveled", "dgradient_grid",
+                "fluctuating_velocities_grid", "fluctuating_velocities_raveled",
+                "velocities_grid", "velocities_grid_raveled", "momenta_grid", 
+                "momenta_grid_raveled"]
+        self._transfer_variables(from_class = self._calc_class, to_class = self, 
+                                    extras = extras)
+        return np.column_stack((self.positions, self.fluctuating_velocities_raveled))
         
 
 class CG_Calculator(Coarse_Base):
@@ -60,6 +73,47 @@ class CG_Calculator(Coarse_Base):
             assert len(min_idxs[0]) > 0
             centers[idx] = np.array([min_idxs[0][0], min_idxs[1][0]])
         return centers
+
+    
+    @staticmethod
+    def get_fluctuating_velocities(xx, yy, positions, densities, idxs, velocities, 
+                                    velocities_grid, spacing):
+        fluc_vels = np.zeros(densities.shape + (2,), dtype = np.float32)
+        samples, y_dim, x_dim = densities.shape
+        half_y, half_x = y_dim // 2, x_dim // 2       
+        for n, region in enumerate(idxs):
+            min_x, max_x = region[:, 0]
+            min_y, max_y = region[:, 1]
+            cur_grid_x = velocities_grid[min_y:max_y, min_x:max_x, 0]
+            cur_grid_y = velocities_grid[min_y:max_y, min_x:max_x, 1]
+            vx, vy = velocities[n]
+            not_zero = np.where(densities[n] != 0)
+            zeros = np.where(densities[n] == 0)
+            cur_grid_x[not_zero] = vx - cur_grid_x[not_zero]
+            cur_grid_y[not_zero] = vy - cur_grid_y[not_zero]
+            vels = np.stack((cur_grid_x, cur_grid_y), axis = 2)
+            [x_dy, x_dx] = np.gradient(vels[:, :, 0], spacing)
+            [y_dy, y_dx] = np.gradient(vels[:, :, 1], spacing)
+            x_dy[zeros] = 0
+            x_dx[zeros] = 0
+            y_dy[zeros] = 0
+            y_dx[zeros] = 0
+            xs = np.stack((x_dx, x_dy), axis = 2)
+            ys = np.stack((y_dx, y_dy), axis = 2)
+            cur_gradient = np.stack((xs, ys), axis = 3)
+            cur_xx = xx[min_y:max_y, min_x:max_x]
+            cur_yy = yy[min_y:max_y, min_x:max_x]
+            diff_x = (positions[n, 0] - cur_xx).reshape((*cur_xx.shape, 1))
+            diff_y = (positions[n, 1] - cur_yy).reshape((*cur_yy.shape, 1))
+            diff = np.stack((diff_x, diff_y), axis = 3)
+            prod = np.matmul(diff, cur_gradient).reshape((*cur_xx.shape, 2))
+            new_vel = vels + prod
+            vels_x = new_vel[:, :, 0]
+            vels_y = new_vel[:, :, 1]
+            vels_x[not_zero] = 0
+            vels_y[not_zero] = 0
+            fluc_vels[n] = np.stack((vels_x, vels_y), axis = 2)
+        return fluc_vels
 
     
     @staticmethod
@@ -230,11 +284,41 @@ class CG_Calculator(Coarse_Base):
         self.session.close()
         del self.session
         self.momenta_grid = self.update_grid(self.momenta_grid, momenta_updates,
-                                                idxs, get_idxs = True)        
+                                                idxs)        
         self.momenta_grid_raveled = self.ravel_grid(self.momenta_grid)
         self.velocities_grid = self.update_grid(self.velocities_grid, 
-                                    velocity_updates, idxs, get_idxs = True)
-        self.velocities_grid_raveled = self.ravel_grid(self.velocities_grid)                
+                                    velocity_updates, idxs)
+        self.velocities_grid_raveled = self.ravel_grid(self.velocities_grid)
+
+
+    def fill_velocity_fluctuation_grid(self, X, Y, V_X, V_Y, radii, 
+                                        mean_field = [], *args, **kwargs):
+        if not hasattr(self, "velocity_updates"):
+            self.fill_momenta_grid(X, Y, V_X, V_Y, radii)
+        if not hasattr(self, "session"):            
+            self.session = tf.InteractiveSession()
+        masses = self.find_sphere_masses(self.density, self.radii)        
+        density_updates = self.updater_densities(self.regions, masses)
+        vel_grid = mean_field if np.any(mean_field) else self.velocities_grid
+        fluctuating_velocity_updates = self.updater_fluctuating_velocities(
+                                            density_updates, self.vels, 
+                                            vel_grid)
+        init = tf.global_variables_initializer()
+        self.session.run(init)
+        idxs, fluctuating_velocity_updates = self.session.run((self.idxs, 
+                            fluctuating_velocity_updates),
+                            feed_dict = {
+                                self.pos: np.column_stack((X, Y)),
+                                self.vels: np.column_stack((V_X, V_Y)),
+                                self.radii: radii,
+                            })
+        self.session.close()
+        del self.session
+        self.fluctuating_velocities_grid = self.update_grid(
+                    self.fluctuating_velocities_grid, 
+                    fluctuating_velocity_updates, idxs)
+        self.fluctuating_velocities_raveled = self.ravel_grid(
+                                            self.fluctuating_velocities_grid)
 
 
     def find_indexes(self, positions, grid_centers, radii, *args, **kwargs):
@@ -336,6 +420,7 @@ class CG_Calculator(Coarse_Base):
         self.densities_grid = np.zeros(self.xx.shape)
         self.dgradient_grid = np.zeros(self.xx.shape + (2,))
         self.velocities_grid = np.zeros(self.xx.shape + (2,))
+        self.fluctuating_velocities_grid = np.zeros(self.xx.shape + (2,))
         self.momenta_grid = np.zeros(self.xx.shape + (2,))
         self.kinetic_grid = np.zeros(self.xx.shape + (2, 2))
         self.pos = tf.placeholder(tf.float32, shape = (None, 2))
@@ -382,17 +467,24 @@ class CG_Calculator(Coarse_Base):
         return masses * fn_terms
 
     
+    def updater_fluctuating_velocities(self, densities, velocities, 
+                                        velocities_grid, *args, **kwargs):
+        primes = tf.py_func(self.get_fluctuating_velocities, 
+                        [self.xx, self.yy, self.pos, densities, self.idxs, 
+                        velocities, velocities_grid, self.cell_size], 
+                        [tf.float32])
+        return primes[0]
+
+    
     def updater_kinetic_stresses(self, fn_term, masses, velocities, 
                                     velocities_grid, *args, **kwargs):
         masses = tf.reshape(masses, [-1, 1, 1])
-        vx = tf.reshape(velocities[:, 0], [-1, 1, 1])
-        vy = tf.reshape(velocities[:, 1], [-1, 1, 1])
-        prime_vx = vx - velocities_grid[:, :, 0]
-        prime_vy = vy - velocities_grid[:, :, 1]
-        vxx = masses * prime_vx * prime_vx * fn_term
-        vxy = masses * prime_vx * prime_vy * fn_term
-        vyx = masses * prime_vy * prime_vx * fn_term
-        vyy = masses * prime_vy * prime_vy * fn_term
+        prime_v = self.updater_fluctuating_velocities(velocities, 
+                                                            velocities_grid)        
+        vxx = masses * prime_v[:, :, 0] * prime_v[:, :, 0] * fn_term
+        vxy = masses * prime_v[:, :, 0] * prime_v[:, :, 1] * fn_term
+        vyx = masses * prime_v[:, :, 1] * prime_v[:, :, 0] * fn_term
+        vyy = masses * prime_v[:, :, 1] * prime_v[:, :, 1] * fn_term
         vxs = tf.stack((vxx, vxy), axis = 3)
         vys = tf.stack((vyx, vyy), axis = 3)
         return tf.stack((vxs, vys), axis = 4)

@@ -110,8 +110,10 @@ class CG_Calculator(Coarse_Base):
             new_vel = vels + prod
             vels_x = new_vel[:, :, 0]
             vels_y = new_vel[:, :, 1]
-            vels_x[not_zero] = 0
-            vels_y[not_zero] = 0
+            vels_x[zeros] = 0
+            vels_y[zeros] = 0
+            vels_x[not_zero] = vels_x[half_y, half_x] 
+            vels_y[not_zero] = vels_y[half_y, half_x]
             fluc_vels[n] = np.stack((vels_x, vels_y), axis = 2)
         return fluc_vels
 
@@ -316,7 +318,7 @@ class CG_Calculator(Coarse_Base):
         del self.session
         self.fluctuating_velocities_grid = self.update_grid(
                     self.fluctuating_velocities_grid, 
-                    fluctuating_velocity_updates, idxs)
+                    fluctuating_velocity_updates, idxs) - mean_field
         self.fluctuating_velocities_raveled = self.ravel_grid(
                                             self.fluctuating_velocities_grid)
 

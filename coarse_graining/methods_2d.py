@@ -318,7 +318,9 @@ class CG_Calculator(Coarse_Base):
         del self.session
         self.fluctuating_velocities_grid = self.update_grid(
                     self.fluctuating_velocities_grid, 
-                    fluctuating_velocity_updates, idxs) - mean_field
+                    fluctuating_velocity_updates, idxs)
+        zeros = np.where(self.densities_grid == 0)
+        self.fluctuating_velocities_grid[zeros] = mean_field[zeros]
         self.fluctuating_velocities_raveled = self.ravel_grid(
                                             self.fluctuating_velocities_grid)
 

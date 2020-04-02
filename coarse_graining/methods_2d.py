@@ -89,15 +89,9 @@ class CG_Calculator(Coarse_Base):
             vx, vy = velocities[n]
             not_zero = np.where(densities[n] != 0)
             zeros = np.where(densities[n] == 0)
-            cur_grid_x[not_zero] = vx - cur_grid_x[not_zero]
-            cur_grid_y[not_zero] = vy - cur_grid_y[not_zero]
             vels = np.stack((cur_grid_x, cur_grid_y), axis = 2)
             [x_dy, x_dx] = np.gradient(vels[:, :, 0], spacing)
             [y_dy, y_dx] = np.gradient(vels[:, :, 1], spacing)
-            x_dy[zeros] = 0
-            x_dx[zeros] = 0
-            y_dy[zeros] = 0
-            y_dx[zeros] = 0
             xs = np.stack((x_dx, x_dy), axis = 2)
             ys = np.stack((y_dx, y_dy), axis = 2)
             cur_gradient = np.stack((xs, ys), axis = 3)
@@ -112,8 +106,8 @@ class CG_Calculator(Coarse_Base):
             vels_y = new_vel[:, :, 1]
             vels_x[zeros] = 0
             vels_y[zeros] = 0
-            vels_x[not_zero] = vels_x[half_y, half_x] 
-            vels_y[not_zero] = vels_y[half_y, half_x]
+            vels_x[not_zero] = vx - vels_x[not_zero]
+            vels_y[not_zero] = vy - vels_y[not_zero]
             fluc_vels[n] = np.stack((vels_x, vels_y), axis = 2)
         return fluc_vels
 

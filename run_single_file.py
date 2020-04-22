@@ -54,16 +54,14 @@ def do_coarse_graining(base_folder, file_name, radius, mean_velocities = [],
     times = np.unique(data[:, 2])
     times = times[::skip] if not n_times else times[:n_times]
     base_file_name = file_name.split('_spots')[0]
-    os.makedirs(base_folder + 'cg_data/' + base_file_name + '/', exist_ok = True)
-    base_pattern = base_folder + 'cg_data/' + base_file_name + '/{}/{}.npy'
-    grid_pattern = base_folder + 'cg_data/' + base_file_name + '/{}.npy'
+    os.makedirs(base_folder + 'cg_data/{}/'.format(kwargs["function"]) + base_file_name + '/', exist_ok = True)
+    base_pattern = base_folder + 'cg_data/{}/'.format(kwargs["function"]) + base_file_name + '/{}/{}.npy'
+    grid_pattern = base_folder + 'cg_data/{}/'.format(kwargs["function"]) + base_file_name + '/{}.npy'
     output_pattern = {
                 "density": base_pattern.format('density', "{}").format,
                 "packing": base_pattern.format('packing', "{}").format,
                 "px": base_pattern.format('px', "{}").format,
                 "py": base_pattern.format('py', "{}").format,
-                "fluc_vx": base_pattern.format('fluc_vx', "{}").format,
-                "fluc_vy": base_pattern.format('fluc_vy', "{}").format,
             }
     for key, value in output_pattern.items():
         os.makedirs(value('').replace('.npy', ''), exist_ok = True)
@@ -74,18 +72,14 @@ def do_coarse_graining(base_folder, file_name, radius, mean_velocities = [],
         X, Y = cur_data[:, 0], cur_data[:, 1]
         V_X, V_Y = cur_data[:, 4], cur_data[:, 5]
         radii = cur_data[:, 6]
-        coarser.velocities(X, Y, V_X, V_Y, radii, mean_velocities, **kwargs)
+        coarser.momenta(X, Y, V_X, V_Y, radii, **kwargs)
         if idx == 0:
             np.save(grid_pattern.format('xx'), coarser.xx)
             np.save(grid_pattern.format('yy'), coarser.yy)
-        if not np.any(mean_velocities):
-            np.save(output_pattern["density"](idx), coarser.densities_grid)
-            np.save(output_pattern["packing"](idx), coarser.packing_fraction)
-            np.save(output_pattern["px"](idx), coarser.momenta_grid[:, :, 0])
-            np.save(output_pattern["py"](idx), coarser.momenta_grid[:, :, 1])
-        else:
-            np.save(output_pattern["fluc_vx"](idx), coarser.fluctuating_velocities_grid[:, :, 0])
-            np.save(output_pattern["fluc_vy"](idx), coarser.fluctuating_velocities_grid[:, :, 1])
+        np.save(output_pattern["density"](idx), coarser.densities_grid)
+        np.save(output_pattern["packing"](idx), coarser.packing_fraction)
+        np.save(output_pattern["px"](idx), coarser.momenta_grid[:, :, 0])
+        np.save(output_pattern["py"](idx), coarser.momenta_grid[:, :, 1])
 
     
     
@@ -95,7 +89,7 @@ if __name__ == "__main__":
                 "epsilon": 4,
                 "n_points": 16,
                 "sys_type": "monodisperse",
-                "function": "heavyside",
+                "function": "gaussian",
                 }
     redo_velocities, aliasing, n_procs = False, 4, 64
     viscosity = 12000

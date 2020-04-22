@@ -1,6 +1,5 @@
 import matplotlib
 matplotlib.interactive(False)
-matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf

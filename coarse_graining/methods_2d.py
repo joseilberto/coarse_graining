@@ -266,12 +266,10 @@ class CG_Calculator(Coarse_Base):
         masses = self.find_sphere_masses(self.density, self.radii)        
         density_updates = self.updater_densities(self.regions, masses)
         momenta_updates = self.updater_momenta(self.regions, masses, self.vels)
-        velocity_updates = self.updater_velocities(momenta_updates, 
-                                                    density_updates)
         init = tf.global_variables_initializer()
         self.session.run(init)
-        idxs, momenta_updates, velocity_updates = self.session.run(
-                        (self.idxs, momenta_updates, velocity_updates),
+        idxs, momenta_updates = self.session.run(
+                        (self.idxs, momenta_updates),
                         feed_dict = {
                             self.pos: np.column_stack((X, Y)),
                             self.vels: np.column_stack((V_X, V_Y)),
@@ -282,15 +280,14 @@ class CG_Calculator(Coarse_Base):
         self.momenta_grid = self.update_grid(self.momenta_grid, momenta_updates,
                                                 idxs)        
         self.momenta_grid_raveled = self.ravel_grid(self.momenta_grid)
-        self.velocities_grid = self.update_grid(self.velocities_grid, 
-                                    velocity_updates, idxs)
-        self.velocities_grid_raveled = self.ravel_grid(self.velocities_grid)
 
 
     def fill_velocity_fluctuation_grid(self, X, Y, V_X, V_Y, radii, 
                                         mean_field = [], *args, **kwargs):
         if not hasattr(self, "velocity_updates"):
             self.fill_momenta_grid(X, Y, V_X, V_Y, radii)
+            if not mean_field:
+                return
         if not hasattr(self, "session"):            
             self.session = tf.InteractiveSession()
         masses = self.find_sphere_masses(self.density, self.radii)        

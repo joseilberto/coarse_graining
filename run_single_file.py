@@ -97,8 +97,8 @@ if __name__ == "__main__":
     base_folder = "./data/mu={}cSt/".format(viscosity)
     video_number = "video0001"
     file_name = "{}_spots_d=0.2cm_fps={}.npy".format(video_number, fps)
-    data_folder = base_folder + 'cg_data/' + video_number + '/'
-    mean_vel_file = base_folder + "{}_mean_v_field.npy".format(video_number)    
+    data_folder = base_folder + 'cg_data/{}/'.format(c_params["function"]) + video_number + '/'
+    mean_vel_file = base_folder + "cg_data/{}/{}_mean_v_field.npy".format(c_params["function"], video_number)    
     mean_velocities = calculate_mean_vel_field(mean_vel_file, data_folder)
     radius = 1*10**(-3)    
     if redo_velocities:

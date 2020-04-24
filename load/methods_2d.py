@@ -129,14 +129,15 @@ def sort_by_time(data):
 
 
 def get_velocity_fields(folder_base, total_frames):
-   for i in range(total_frames): 
-       density = np.load(folder_base + 'density/{}.npy'.format(i)) 
-       px = np.load(folder_base + 'px/{}.npy'.format(i)) 
-       py = np.load(folder_base + 'py/{}.npy'.format(i)) 
-       vx = np.nan_to_num(px / density) 
-       vy = np.nan_to_num(py / density) 
-       if i == 0: 
-           sed_velocity = np.stack((vx, vy), axis = 2) 
-           continue 
-       sed_velocity += np.stack((vx, vy), axis = 2) 
-   return sed_velocity / total_frames    
+    for i in range(total_frames):
+        if i == 0:
+            density = np.load(folder_base + 'density/{}.npy'.format(i))
+            px = np.load(folder_base + 'px/{}.npy'.format(i))
+            py = np.load(folder_base + 'py/{}.npy'.format(i))
+            continue
+        density += np.load(folder_base + 'density/{}.npy'.format(i))
+        px += np.load(folder_base + 'px/{}.npy'.format(i))
+        py += np.load(folder_base + 'py/{}.npy'.format(i))
+    vx = np.nan_to_num(px / density)
+    vy = np.nan_to_num(py / density)
+    return np.stack((vx, vy), axis = 2)
